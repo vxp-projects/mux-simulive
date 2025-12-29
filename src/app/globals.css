@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Simulated Live Player Styles - Hide seeking controls */
+.simulive-player {
+  /* Hide the seek/scrub bar */
+  --time-range: none;
+
+  /* Hide seek buttons */
+  --seek-backward-button: none;
+  --seek-forward-button: none;
+
+  /* Hide time displays that reveal it's not truly live */
+  --time-display: none;
+  --duration-display: none;
+
+  /* Keep the live button visible */
+  --live-button: block;
+}
+
+/* Optional: Style the player container */
+.simulive-container {
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* Live indicator badge */
+.live-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.live-badge::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  background: white;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Stream {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Stream identification
+  slug      String   @unique // URL-friendly identifier (e.g., "new-years-eve-2024")
+  title     String
+
+  // Mux asset details
+  assetId    String  // Mux asset ID
+  playbackId String  // Mux playback ID
+  duration   Float   // Video duration in seconds (fetched from Mux)
+
+  // Scheduling
+  scheduledStart DateTime // When the "broadcast" starts
+
+  // Status
+  isActive   Boolean @default(false) // Whether this stream is currently active/visible
+
+  // Optional settings
+  syncInterval    Int @default(5000)  // How often to sync (ms)
+  driftTolerance  Int @default(2)     // Max drift before resync (seconds)
+}

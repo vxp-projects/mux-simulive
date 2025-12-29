@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  simulive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simulive-stream
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Mux API Credentials (required)
+      - MUX_TOKEN_ID=${MUX_TOKEN_ID}
+      - MUX_TOKEN_SECRET=${MUX_TOKEN_SECRET}
+
+      # Database URL (SQLite stored in volume)
+      - DATABASE_URL=file:/app/data/simulive.db
+
+      # Optional: Admin password to protect /admin
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    volumes:
+      # Persist SQLite database
+      - simulive-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  simulive-data:
