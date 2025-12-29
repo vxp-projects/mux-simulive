@@ -60,18 +60,16 @@ RUN adduser --system --uid 1001 nextjs
 # Create data directory for SQLite (will be mounted as volume)
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
-# Copy Prisma files for migrations
-COPY --from=builder /app/prisma ./prisma
+# Copy Prisma CLI and client
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/prisma ./prisma
 
 # Copy built application
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copy package.json for prisma commands
-COPY --from=builder /app/package.json ./
 
 # Switch to non-root user
 USER nextjs
@@ -82,9 +80,9 @@ EXPOSE 3000
 # Data volume for SQLite
 VOLUME ["/app/data"]
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check - give more time for startup
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start script: run migrations then start server
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
