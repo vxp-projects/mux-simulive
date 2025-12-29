@@ -8,9 +8,8 @@ export function getMuxConfig() {
   const tokenSecret = process.env.MUX_TOKEN_SECRET;
 
   if (!tokenId || !tokenSecret) {
-    throw new Error(
-      "MUX_TOKEN_ID and MUX_TOKEN_SECRET must be set in environment variables"
-    );
+    console.error("MUX_TOKEN_ID and MUX_TOKEN_SECRET must be set");
+    return null;
   }
 
   return { tokenId, tokenSecret };
@@ -18,4 +17,8 @@ export function getMuxConfig() {
 
 export function getAdminPassword(): string | null {
   return process.env.ADMIN_PASSWORD || null;
+}
+
+export function isMuxConfigured(): boolean {
+  return !!(process.env.MUX_TOKEN_ID && process.env.MUX_TOKEN_SECRET);
 }

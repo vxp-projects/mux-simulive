@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatTime } from "@/lib/simulive";
 
 interface Stream {
@@ -25,11 +26,19 @@ interface MuxAsset {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [streams, setStreams] = useState<Stream[]>([]);
   const [assets, setAssets] = useState<MuxAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Logout handler
+  async function handleLogout() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    router.push("/admin/login");
+    router.refresh();
+  }
 
   // Form state
   const [formData, setFormData] = useState({
@@ -162,12 +171,20 @@ export default function AdminPage() {
     <main className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Stream Management</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium"
-        >
-          {showForm ? "Cancel" : "+ New Stream"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium"
+          >
+            {showForm ? "Cancel" : "+ New Stream"}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg font-medium text-gray-300"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       {/* Create Form */}

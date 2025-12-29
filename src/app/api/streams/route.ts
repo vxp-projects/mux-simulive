@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getAssetInfo } from "@/lib/mux";
+import { isApiAuthenticated } from "@/lib/auth";
 
 // GET /api/streams - List all streams
 export async function GET() {
@@ -20,6 +21,10 @@ export async function GET() {
 
 // POST /api/streams - Create a new stream
 export async function POST(request: NextRequest) {
+  if (!isApiAuthenticated(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { slug, title, assetId, scheduledStart, syncInterval, driftTolerance } = body;

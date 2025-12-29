@@ -7,7 +7,6 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat openssl
 
 # Set environment variables
-ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
@@ -23,7 +22,7 @@ RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
-# Install dependencies
+# Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
 # Generate Prisma client
@@ -35,8 +34,11 @@ COPY . .
 # Build Next.js
 RUN npm run build
 
-# Change ownership of .next folder
-RUN chown -R nextjs:nodejs /app/.next
+# Set production mode
+ENV NODE_ENV=production
+
+# Change ownership
+RUN chown -R nextjs:nodejs /app/.next /app/node_modules
 
 # Switch to non-root user
 USER nextjs
@@ -52,4 +54,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start: run migrations then start server
+# Keep prisma in node_modules (don't prune) so this works
 CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]

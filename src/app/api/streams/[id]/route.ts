@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { isApiAuthenticated } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -29,6 +30,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // PATCH /api/streams/[id] - Update a stream
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  if (!isApiAuthenticated(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -82,6 +87,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 // DELETE /api/streams/[id] - Delete a stream
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  if (!isApiAuthenticated(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     await prisma.stream.delete({

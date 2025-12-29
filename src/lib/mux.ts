@@ -3,12 +3,15 @@ import { getMuxConfig } from "./config";
 
 let muxClient: Mux | null = null;
 
-export function getMuxClient(): Mux {
+export function getMuxClient(): Mux | null {
   if (!muxClient) {
-    const { tokenId, tokenSecret } = getMuxConfig();
+    const config = getMuxConfig();
+    if (!config) {
+      return null;
+    }
     muxClient = new Mux({
-      tokenId,
-      tokenSecret,
+      tokenId: config.tokenId,
+      tokenSecret: config.tokenSecret,
     });
   }
   return muxClient;
@@ -28,6 +31,10 @@ export interface MuxAssetInfo {
  */
 export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
   const mux = getMuxClient();
+  if (!mux) {
+    throw new Error("Mux is not configured. Set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
+  }
+
   const asset = await mux.video.assets.retrieve(assetId);
 
   // Get the public playback ID
@@ -48,6 +55,10 @@ export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
  */
 export async function listAssets(limit: number = 20) {
   const mux = getMuxClient();
+  if (!mux) {
+    throw new Error("Mux is not configured. Set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
+  }
+
   const response = await mux.video.assets.list({ limit });
 
   return response.data.map((asset) => {
@@ -69,6 +80,10 @@ export async function listAssets(limit: number = 20) {
  */
 export async function createAssetFromUrl(url: string) {
   const mux = getMuxClient();
+  if (!mux) {
+    throw new Error("Mux is not configured. Set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
+  }
+
   const asset = await mux.video.assets.create({
     input: [{ url }],
     playback_policy: ["public"],
