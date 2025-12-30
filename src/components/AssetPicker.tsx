@@ -11,6 +11,7 @@ interface MuxAsset {
   duration: number | null;
   status: string;
   createdAt: string;
+  title: string | null;
 }
 
 interface AssetPickerProps {
@@ -103,10 +104,11 @@ export default function AssetPicker({
           <div className="bg-gray-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b border-gray-700">
               <div>
-                <h3 className="font-semibold">Preview</h3>
+                <h3 className="font-semibold">
+                  {previewAsset.title || "Preview"}
+                </h3>
                 <p className="text-sm text-gray-400">
-                  {previewAsset.id.slice(0, 12)}...
-                  {previewAsset.duration && ` • ${formatTime(previewAsset.duration)}`}
+                  {previewAsset.duration && formatTime(previewAsset.duration)}
                   {previewAsset.playbackPolicy === "signed" && (
                     <span className="ml-2 text-yellow-500">(Signed)</span>
                   )}
@@ -233,10 +235,10 @@ export default function AssetPicker({
                   ▶ Preview
                 </button>
 
-                {/* Asset ID */}
+                {/* Asset info */}
                 <div className="p-2 bg-gray-900/90">
-                  <p className="text-xs text-gray-400 truncate">
-                    {asset.id.slice(0, 16)}...
+                  <p className="text-xs text-white truncate" title={asset.title || asset.id}>
+                    {asset.title || `${asset.id.slice(0, 16)}...`}
                   </p>
                   <p className="text-xs text-gray-500">
                     {new Date(asset.createdAt).toLocaleDateString()}

@@ -27,6 +27,7 @@ interface MuxAsset {
   duration: number | null;
   status: string;
   createdAt: string;
+  title: string | null;
 }
 
 export default function AdminPage() {

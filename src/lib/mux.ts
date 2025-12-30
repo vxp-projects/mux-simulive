@@ -66,6 +66,7 @@ export interface MuxAssetListItem {
   duration: number | null;
   status: string;
   createdAt: string;
+  title: string | null;
 }
 
 export interface PaginatedAssetsResponse {
@@ -113,6 +114,9 @@ export async function listAssets(
     const signedPlayback = asset.playback_ids?.find((p) => p.policy === "signed");
     const playback = publicPlayback || signedPlayback;
 
+    // Access meta field (not in SDK types but exists in API response)
+    const assetWithMeta = asset as typeof asset & { meta?: { title?: string } };
+
     return {
       id: asset.id,
       playbackId: playback?.id || null,
@@ -121,6 +125,7 @@ export async function listAssets(
       status: asset.status,
       // Convert Unix seconds to ISO string for proper date parsing
       createdAt: new Date(Number(asset.created_at) * 1000).toISOString(),
+      title: assetWithMeta.meta?.title || null,
     };
   });
 
