@@ -12,7 +12,7 @@ export async function GET() {
   }
 
   try {
-    const assets = await listAssets(50);
+    const assets = await listAssets();
     return NextResponse.json(assets);
   } catch (error) {
     console.error("Failed to fetch Mux assets:", error);

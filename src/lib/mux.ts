@@ -51,28 +51,57 @@ export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
 }
 
 /**
- * List all assets from Mux account
+ * List ALL assets from Mux account (handles pagination)
  */
-export async function listAssets(limit: number = 20) {
+export async function listAssets() {
   const mux = getMuxClient();
   if (!mux) {
     throw new Error("Mux is not configured. Set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
   }
 
-  const response = await mux.video.assets.list({ limit });
+  const allAssets: {
+    id: string;
+    playbackId: string | null;
+    duration: number | null;
+    status: string;
+    createdAt: string;
+  }[] = [];
 
-  return response.data.map((asset) => {
-    const publicPlayback = asset.playback_ids?.find(
-      (p) => p.policy === "public"
-    );
-    return {
-      id: asset.id,
-      playbackId: publicPlayback?.id || null,
-      duration: asset.duration || null,
-      status: asset.status,
-      createdAt: asset.created_at,
-    };
-  });
+  // Mux API max limit per page is 100
+  const pageSize = 100;
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await mux.video.assets.list({
+      limit: pageSize,
+      page: page,
+    });
+
+    const assets = response.data.map((asset) => {
+      const publicPlayback = asset.playback_ids?.find(
+        (p) => p.policy === "public"
+      );
+      return {
+        id: asset.id,
+        playbackId: publicPlayback?.id || null,
+        duration: asset.duration || null,
+        status: asset.status,
+        createdAt: asset.created_at,
+      };
+    });
+
+    allAssets.push(...assets);
+
+    // If we got fewer than pageSize, we've reached the end
+    if (assets.length < pageSize) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  return allAssets;
 }
 
 /**
