@@ -27,34 +27,49 @@
   margin: 0 auto;
 }
 
-/* Live indicator badge */
+/* Live indicator badge - Mux style */
 .live-badge {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: 0.75rem;
+  left: 0.75rem;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(220, 38, 38, 0.9);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
+  gap: 0.35rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
-.live-badge::before {
-  content: '';
-  width: 0.5rem;
-  height: 0.5rem;
-  background: white;
+.live-badge.visible {
+  opacity: 1;
+}
+
+.live-badge.hidden {
+  opacity: 0;
+}
+
+.live-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  background: #e53935;
   border-radius: 50%;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: live-pulse 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
 }

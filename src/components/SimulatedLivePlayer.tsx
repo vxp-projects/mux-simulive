@@ -45,11 +45,14 @@ export default function SimulatedLivePlayer({
   driftTolerance = 3,
 }: SimulatedLivePlayerProps) {
   const playerRef = useRef<MuxPlayerElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [state, setState] = useState<SimuliveState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const [tokens, setTokens] = useState<PlaybackTokens | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [showBadge, setShowBadge] = useState(true);
 
   const config: SimuliveConfig = {
     scheduledStart,
@@ -195,13 +198,47 @@ export default function SimulatedLivePlayer({
     }
   }, [config, getSyncedTime]);
 
+  // Auto-hide live badge after 3 seconds, show on mouse activity
+  const resetBadgeTimer = useCallback(() => {
+    setShowBadge(true);
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+    }
+    hideTimerRef.current = setTimeout(() => {
+      setShowBadge(false);
+    }, 3000);
+  }, []);
+
+  // Set up mouse activity listener for badge visibility
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Initial timer to hide badge
+    resetBadgeTimer();
+
+    const handleMouseMove = () => resetBadgeTimer();
+    const handleMouseEnter = () => resetBadgeTimer();
+
+    container.addEventListener("mousemove", handleMouseMove);
+    container.addEventListener("mouseenter", handleMouseEnter);
+
+    return () => {
+      container.removeEventListener("mousemove", handleMouseMove);
+      container.removeEventListener("mouseenter", handleMouseEnter);
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
+  }, [resetBadgeTimer]);
+
   // Determine what overlay to show
   const showCountdown = state && !state.isLive && state.secondsUntilStart > 0;
   const showEnded = state?.hasEnded;
   const showPlayer = state?.isLive;
 
   return (
-    <div className="simulive-container">
+    <div className="simulive-container" ref={containerRef}>
       {/* Countdown overlay - shown before stream starts */}
       {showCountdown && (
         <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-30 rounded-lg">
@@ -221,8 +258,13 @@ export default function SimulatedLivePlayer({
         </div>
       )}
 
-      {/* Live badge overlay */}
-      {showPlayer && <div className="live-badge">Live</div>}
+      {/* Live badge overlay - Mux-style indicator */}
+      {showPlayer && (
+        <div className={`live-badge ${showBadge ? "visible" : "hidden"}`}>
+          <span className="live-dot" />
+          LIVE
+        </div>
+      )}
 
       {/* Loading overlay */}
       {isLoading && !showCountdown && !showEnded && (
