@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatTime } from "@/lib/simulive";
+import MuxPlayer from "@mux/mux-player-react";
 
 interface MuxAsset {
   id: string;
@@ -18,12 +19,70 @@ interface AssetPickerProps {
   onSelect: (assetId: string) => void;
 }
 
+interface TokenCache {
+  [playbackId: string]: {
+    video?: string;
+    thumbnail?: string;
+    storyboard?: string;
+  };
+}
+
 export default function AssetPicker({
   assets,
   selectedAssetId,
   onSelect,
 }: AssetPickerProps) {
   const [previewAsset, setPreviewAsset] = useState<MuxAsset | null>(null);
+  const [tokens, setTokens] = useState<TokenCache>({});
+  const [loadingTokens, setLoadingTokens] = useState<Set<string>>(new Set());
+  const fetchedRef = useRef<Set<string>>(new Set());
+
+  // Fetch tokens for all signed assets on mount
+  useEffect(() => {
+    const signedAssets = assets.filter(
+      (a) => a.playbackPolicy === "signed" && a.playbackId
+    );
+
+    signedAssets.forEach(async (asset) => {
+      const playbackId = asset.playbackId!;
+
+      // Skip if already fetched or fetching
+      if (fetchedRef.current.has(playbackId)) return;
+      fetchedRef.current.add(playbackId);
+
+      setLoadingTokens((prev) => new Set(prev).add(playbackId));
+
+      try {
+        const res = await fetch(`/api/tokens/${playbackId}`);
+        if (res.ok) {
+          const tokenData = await res.json();
+          setTokens((prev) => ({ ...prev, [playbackId]: tokenData }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch token:", err);
+      } finally {
+        setLoadingTokens((prev) => {
+          const next = new Set(prev);
+          next.delete(playbackId);
+          return next;
+        });
+      }
+    });
+  }, [assets]);
+
+  // Get thumbnail URL with token if needed
+  const getThumbnailUrl = (asset: MuxAsset) => {
+    if (!asset.playbackId) return null;
+    const baseUrl = `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=smartcrop`;
+    if (asset.playbackPolicy === "signed" && tokens[asset.playbackId]?.thumbnail) {
+      return `${baseUrl}&token=${tokens[asset.playbackId].thumbnail}`;
+    }
+    // For signed assets without token yet, return null to show loading state
+    if (asset.playbackPolicy === "signed") {
+      return null;
+    }
+    return baseUrl;
+  };
 
   const readyAssets = assets.filter((a) => a.status === "ready" && a.playbackId);
 
@@ -48,6 +107,9 @@ export default function AssetPicker({
                 <p className="text-sm text-gray-400">
                   {previewAsset.id.slice(0, 12)}...
                   {previewAsset.duration && ` • ${formatTime(previewAsset.duration)}`}
+                  {previewAsset.playbackPolicy === "signed" && (
+                    <span className="ml-2 text-yellow-500">(Signed)</span>
+                  )}
                 </p>
               </div>
               <button
@@ -58,11 +120,16 @@ export default function AssetPicker({
               </button>
             </div>
             <div className="aspect-video bg-black">
-              <video
-                src={`https://stream.mux.com/${previewAsset.playbackId}/high.mp4`}
-                controls
+              <MuxPlayer
+                playbackId={previewAsset.playbackId}
+                tokens={
+                  previewAsset.playbackPolicy === "signed" && tokens[previewAsset.playbackId]
+                    ? tokens[previewAsset.playbackId]
+                    : undefined
+                }
                 autoPlay
-                className="w-full h-full"
+                streamType="on-demand"
+                style={{ width: "100%", height: "100%" }}
               />
             </div>
             <div className="p-4 flex justify-end gap-3">
@@ -91,9 +158,10 @@ export default function AssetPicker({
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {readyAssets.map((asset) => {
             const isSelected = asset.id === selectedAssetId;
-            const thumbnailUrl = asset.playbackId
-              ? `https://image.mux.com/${asset.playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=smartcrop`
-              : null;
+            const thumbnailUrl = getThumbnailUrl(asset);
+            const isLoadingToken = asset.playbackPolicy === "signed" &&
+              asset.playbackId &&
+              loadingTokens.has(asset.playbackId);
 
             return (
               <div
@@ -107,11 +175,19 @@ export default function AssetPicker({
               >
                 {/* Thumbnail */}
                 <div className="aspect-video bg-gray-700">
-                  {thumbnailUrl ? (
+                  {isLoadingToken ? (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <div className="animate-pulse">Loading...</div>
+                    </div>
+                  ) : thumbnailUrl ? (
                     <img
                       src={thumbnailUrl}
                       alt={`Asset ${asset.id}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Hide broken image and show fallback
+                        e.currentTarget.style.display = "none";
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-500">
