@@ -1,7 +1,13 @@
-import { NextResponse } from "next/server";
-import { ADMIN_COOKIE_NAME } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_COOKIE_NAME, deleteAdminSession } from "@/lib/auth";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Delete session from Redis if it exists
+  const adminCookie = request.cookies.get(ADMIN_COOKIE_NAME);
+  if (adminCookie?.value) {
+    await deleteAdminSession(adminCookie.value);
+  }
+
   const response = NextResponse.json({ success: true });
 
   // Clear the auth cookie
