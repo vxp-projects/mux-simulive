@@ -243,13 +243,11 @@ export default function SimulatedLivePlayer({
         <MuxPlayer
           ref={playerRef}
           playbackId={playbackId}
-          streamType="live"
+          streamType="on-demand"
           className="simulive-player aspect-video rounded-lg overflow-hidden"
           metadata={{
             video_title: title,
           }}
-          // Disable seeking via hotkeys
-          hotkeys="noarrowleft noarrowright"
           // Auto-play muted to comply with browser policies
           autoPlay="muted"
           // Event handlers
