@@ -51,7 +51,7 @@ export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
 }
 
 /**
- * List ALL assets from Mux account (handles pagination)
+ * List ALL assets from Mux account (handles pagination automatically)
  */
 export async function listAssets() {
   const mux = getMuxClient();
@@ -67,38 +67,18 @@ export async function listAssets() {
     createdAt: string;
   }[] = [];
 
-  // Mux API max limit per page is 100
-  const pageSize = 100;
-  let page = 1;
-  let hasMore = true;
-
-  while (hasMore) {
-    const response = await mux.video.assets.list({
-      limit: pageSize,
-      page: page,
+  // Use for await...of for automatic pagination through all assets
+  for await (const asset of mux.video.assets.list()) {
+    const publicPlayback = asset.playback_ids?.find(
+      (p) => p.policy === "public"
+    );
+    allAssets.push({
+      id: asset.id,
+      playbackId: publicPlayback?.id || null,
+      duration: asset.duration || null,
+      status: asset.status,
+      createdAt: asset.created_at,
     });
-
-    const assets = response.data.map((asset) => {
-      const publicPlayback = asset.playback_ids?.find(
-        (p) => p.policy === "public"
-      );
-      return {
-        id: asset.id,
-        playbackId: publicPlayback?.id || null,
-        duration: asset.duration || null,
-        status: asset.status,
-        createdAt: asset.created_at,
-      };
-    });
-
-    allAssets.push(...assets);
-
-    // If we got fewer than pageSize, we've reached the end
-    if (assets.length < pageSize) {
-      hasMore = false;
-    } else {
-      page++;
-    }
   }
 
   return allAssets;
