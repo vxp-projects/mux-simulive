@@ -51,7 +51,7 @@ export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
 }
 
 /**
- * List ALL assets from Mux account (handles pagination automatically)
+ * List ALL assets from Mux account (handles pagination with hasNextPage/getNextPage)
  */
 export async function listAssets() {
   const mux = getMuxClient();
@@ -67,8 +67,11 @@ export async function listAssets() {
     createdAt: string;
   }[] = [];
 
-  // Use for await...of for automatic pagination through all assets
-  for await (const asset of mux.video.assets.list()) {
+  // Fetch first page
+  let page = await mux.video.assets.list({ limit: 100 });
+
+  // Process first page
+  for (const asset of page.data) {
     const publicPlayback = asset.playback_ids?.find(
       (p) => p.policy === "public"
     );
@@ -81,6 +84,24 @@ export async function listAssets() {
     });
   }
 
+  // Fetch remaining pages
+  while (page.hasNextPage()) {
+    page = await page.getNextPage();
+    for (const asset of page.data) {
+      const publicPlayback = asset.playback_ids?.find(
+        (p) => p.policy === "public"
+      );
+      allAssets.push({
+        id: asset.id,
+        playbackId: publicPlayback?.id || null,
+        duration: asset.duration || null,
+        status: asset.status,
+        createdAt: asset.created_at,
+      });
+    }
+  }
+
+  console.log(`Fetched ${allAssets.length} total assets from Mux`);
   return allAssets;
 }
 
