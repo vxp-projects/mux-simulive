@@ -1,9 +1,17 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import SimulatedLivePlayer from "@/components/SimulatedLivePlayer";
 
 // Force dynamic rendering (database not available at build time)
 export const dynamic = "force-dynamic";
+
+// Cache the stream query to deduplicate between page and metadata
+const getStream = cache(async (slug: string) => {
+  return prisma.stream.findUnique({
+    where: { slug },
+  });
+});
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -12,9 +20,7 @@ interface PageProps {
 export default async function WatchPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const stream = await prisma.stream.findUnique({
-    where: { slug },
-  });
+  const stream = await getStream(slug);
 
   if (!stream) {
     notFound();
@@ -56,12 +62,10 @@ export default async function WatchPage({ params }: PageProps) {
   );
 }
 
-// Generate metadata
+// Generate metadata (uses cached getStream - no duplicate DB query)
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
-  const stream = await prisma.stream.findUnique({
-    where: { slug },
-  });
+  const stream = await getStream(slug);
 
   if (!stream) {
     return { title: "Stream Not Found" };

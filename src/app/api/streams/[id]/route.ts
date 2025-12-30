@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { isApiAuthenticated } from "@/lib/auth";
+import { deleteCached } from "@/lib/redis";
+
+const STREAMS_CACHE_KEY = "streams:all";
+
+async function invalidateStreamsCache() {
+  await deleteCached(STREAMS_CACHE_KEY);
+}
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -30,7 +37,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // PATCH /api/streams/[id] - Update a stream
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  if (!isApiAuthenticated(request)) {
+  if (!(await isApiAuthenticated(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -75,6 +82,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: updateData,
     });
 
+    // Invalidate cache after update
+    await invalidateStreamsCache();
+
     return NextResponse.json(stream);
   } catch (error) {
     console.error("Failed to update stream:", error);
@@ -87,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 // DELETE /api/streams/[id] - Delete a stream
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  if (!isApiAuthenticated(request)) {
+  if (!(await isApiAuthenticated(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -96,6 +106,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await prisma.stream.delete({
       where: { id },
     });
+
+    // Invalidate cache after delete
+    await invalidateStreamsCache();
 
     return NextResponse.json({ success: true });
   } catch (error) {

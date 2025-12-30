@@ -2,14 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getAssetInfo } from "@/lib/mux";
 import { isApiAuthenticated } from "@/lib/auth";
+import { getCached, setCached, deleteCached } from "@/lib/redis";
 
-// GET /api/streams - List all streams
+const STREAMS_CACHE_KEY = "streams:all";
+const STREAMS_CACHE_TTL = 30; // 30 seconds
+
+// GET /api/streams - List all streams (with Redis caching)
 export async function GET() {
   try {
+    // Try to get from cache first
+    const cached = await getCached<unknown[]>(STREAMS_CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "X-Cache": "HIT" },
+      });
+    }
+
+    // Cache miss - fetch from database
     const streams = await prisma.stream.findMany({
       orderBy: { scheduledStart: "desc" },
     });
-    return NextResponse.json(streams);
+
+    // Store in cache
+    await setCached(STREAMS_CACHE_KEY, streams, STREAMS_CACHE_TTL);
+
+    return NextResponse.json(streams, {
+      headers: { "X-Cache": "MISS" },
+    });
   } catch (error) {
     console.error("Failed to fetch streams:", error);
     return NextResponse.json(
@@ -19,9 +38,14 @@ export async function GET() {
   }
 }
 
+// Helper to invalidate streams cache
+async function invalidateStreamsCache() {
+  await deleteCached(STREAMS_CACHE_KEY);
+}
+
 // POST /api/streams - Create a new stream
 export async function POST(request: NextRequest) {
-  if (!isApiAuthenticated(request)) {
+  if (!(await isApiAuthenticated(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -95,6 +119,9 @@ export async function POST(request: NextRequest) {
         isActive: false,
       },
     });
+
+    // Invalidate cache after creating stream
+    await invalidateStreamsCache();
 
     return NextResponse.json(stream, { status: 201 });
   } catch (error) {

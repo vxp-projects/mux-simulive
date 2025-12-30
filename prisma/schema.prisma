@@ -31,4 +31,9 @@ model Stream {
   // Optional settings
   syncInterval    Int @default(5000)  // How often to sync (ms)
   driftTolerance  Int @default(2)     // Max drift before resync (seconds)
+
+  // Indexes for query performance
+  @@index([isActive])
+  @@index([scheduledStart])
+  @@index([isActive, scheduledStart])
 }

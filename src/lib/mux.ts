@@ -59,74 +59,100 @@ export async function getAssetInfo(assetId: string): Promise<MuxAssetInfo> {
   };
 }
 
+export interface MuxAssetListItem {
+  id: string;
+  playbackId: string | null;
+  playbackPolicy: string | null;
+  duration: number | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface PaginatedAssetsResponse {
+  assets: MuxAssetListItem[];
+  pagination: {
+    hasMore: boolean;
+    nextCursor: string | null;
+    limit: number;
+  };
+}
+
 /**
- * List ALL assets from Mux account (handles cursor-based pagination)
+ * List assets from Mux account with pagination
+ * @param limit Number of assets per page (default 20, max 100)
+ * @param cursor Cursor for next page (from previous response)
  */
-export async function listAssets() {
+export async function listAssets(
+  limit: number = 20,
+  cursor?: string
+): Promise<PaginatedAssetsResponse> {
   const mux = getMuxClient();
   if (!mux) {
     throw new Error("Mux is not configured. Set MUX_TOKEN_ID and MUX_TOKEN_SECRET.");
   }
 
-  const allAssets: {
-    id: string;
-    playbackId: string | null;
-    playbackPolicy: string | null;
-    duration: number | null;
-    status: string;
-    createdAt: string;
-  }[] = [];
+  // Clamp limit to valid range
+  const safeLimit = Math.min(Math.max(1, limit), 100);
 
-  let pageNumber = 1;
+  const params: { limit: number; cursor?: string } = { limit: safeLimit };
+  if (cursor) {
+    params.cursor = cursor;
+  }
+
+  const response = await mux.video.assets.list(params);
+
+  // Access raw response to get next_cursor
+  const rawResponse = response as unknown as {
+    data: typeof response.data;
+    next_cursor?: string | null;
+  };
+
+  // Process assets
+  const assets: MuxAssetListItem[] = response.data.map((asset) => {
+    const publicPlayback = asset.playback_ids?.find((p) => p.policy === "public");
+    const signedPlayback = asset.playback_ids?.find((p) => p.policy === "signed");
+    const playback = publicPlayback || signedPlayback;
+
+    return {
+      id: asset.id,
+      playbackId: playback?.id || null,
+      playbackPolicy: playback?.policy || null,
+      duration: asset.duration || null,
+      status: asset.status,
+      createdAt: asset.created_at,
+    };
+  });
+
+  return {
+    assets,
+    pagination: {
+      hasMore: !!rawResponse.next_cursor,
+      nextCursor: rawResponse.next_cursor || null,
+      limit: safeLimit,
+    },
+  };
+}
+
+/**
+ * List ALL assets from Mux account (fetches all pages)
+ * Use with caution - can be slow and memory-intensive with many assets
+ */
+export async function listAllAssets(): Promise<MuxAssetListItem[]> {
+  const allAssets: MuxAssetListItem[] = [];
   let cursor: string | undefined = undefined;
   let hasMore = true;
 
   while (hasMore) {
-    // Fetch page with cursor if available
-    const params: { limit: number; cursor?: string } = { limit: 100 };
-    if (cursor) {
-      params.cursor = cursor;
-    }
-    const response = await mux.video.assets.list(params);
+    const response = await listAssets(100, cursor);
+    allAssets.push(...response.assets);
 
-    // Access raw response to get next_cursor
-    const rawResponse = response as unknown as {
-      data: typeof response.data;
-      next_cursor?: string | null;
-    };
-
-    console.log(`[Mux] Page ${pageNumber}: fetched ${response.data.length} assets, next_cursor: ${rawResponse.next_cursor || 'null'}`);
-
-    // Process assets - include both public and signed playback IDs
-    for (const asset of response.data) {
-      const publicPlayback = asset.playback_ids?.find(
-        (p) => p.policy === "public"
-      );
-      const signedPlayback = asset.playback_ids?.find(
-        (p) => p.policy === "signed"
-      );
-      // Prefer public, fall back to signed
-      const playback = publicPlayback || signedPlayback;
-      allAssets.push({
-        id: asset.id,
-        playbackId: playback?.id || null,
-        playbackPolicy: playback?.policy || null,
-        duration: asset.duration || null,
-        status: asset.status,
-        createdAt: asset.created_at,
-      });
-    }
-
-    // Check for next page
-    if (rawResponse.next_cursor) {
-      cursor = rawResponse.next_cursor;
-      pageNumber++;
+    if (response.pagination.hasMore && response.pagination.nextCursor) {
+      cursor = response.pagination.nextCursor;
     } else {
       hasMore = false;
     }
   }
 
-  console.log(`[Mux] Total: fetched ${allAssets.length} assets across ${pageNumber} pages`);
   return allAssets;
 }
 
