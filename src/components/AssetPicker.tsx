@@ -6,6 +6,7 @@ import { formatTime } from "@/lib/simulive";
 interface MuxAsset {
   id: string;
   playbackId: string | null;
+  playbackPolicy: string | null;
   duration: number | null;
   status: string;
   createdAt: string;
@@ -123,6 +124,13 @@ export default function AssetPicker({
                 {asset.duration && (
                   <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded">
                     {formatTime(asset.duration)}
+                  </div>
+                )}
+
+                {/* Signed badge */}
+                {asset.playbackPolicy === "signed" && (
+                  <div className="absolute bottom-1 left-1 bg-yellow-600 text-white text-xs px-1.5 py-0.5 rounded">
+                    Signed
                   </div>
                 )}
 

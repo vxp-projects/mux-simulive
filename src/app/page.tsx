@@ -2,6 +2,7 @@ import Link from "next/link";
 import prisma from "@/lib/db";
 import { formatTime } from "@/lib/simulive";
 
+// Force dynamic rendering (database not available at build time)
 export const dynamic = "force-dynamic";
 
 export default async function Home() {

@@ -12,9 +12,17 @@ import {
   type SimuliveState,
 } from "@/lib/simulive";
 
+interface PlaybackTokens {
+  "playback-token"?: string;
+  "thumbnail-token"?: string;
+  "storyboard-token"?: string;
+}
+
 interface SimulatedLivePlayerProps {
   /** Mux playback ID for the on-demand asset */
   playbackId: string;
+  /** Playback policy: "public" or "signed" */
+  playbackPolicy?: string;
   /** Scheduled start time (ISO 8601 string) */
   scheduledStart: string;
   /** Video duration in seconds */
@@ -29,6 +37,7 @@ interface SimulatedLivePlayerProps {
 
 export default function SimulatedLivePlayer({
   playbackId,
+  playbackPolicy = "public",
   scheduledStart,
   videoDuration,
   title = "Live Stream",
@@ -39,6 +48,8 @@ export default function SimulatedLivePlayer({
   const [state, setState] = useState<SimuliveState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [tokens, setTokens] = useState<PlaybackTokens | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   const config: SimuliveConfig = {
     scheduledStart,
@@ -66,6 +77,30 @@ export default function SimulatedLivePlayer({
     }
     calibrateTime();
   }, []);
+
+  // Fetch tokens for signed playback
+  useEffect(() => {
+    if (playbackPolicy !== "signed") {
+      setTokens(null);
+      return;
+    }
+
+    async function fetchTokens() {
+      try {
+        const res = await fetch(`/api/tokens/${playbackId}`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch tokens");
+        }
+        const data = await res.json();
+        setTokens(data);
+        setTokenError(null);
+      } catch (error) {
+        console.error("Failed to fetch playback tokens:", error);
+        setTokenError("Unable to load signed video");
+      }
+    }
+    fetchTokens();
+  }, [playbackId, playbackPolicy]);
 
   // Get current synced time (local time adjusted by server offset)
   const getSyncedTime = useCallback(() => {
@@ -160,62 +195,77 @@ export default function SimulatedLivePlayer({
     }
   }, [config, getSyncedTime]);
 
-  // Before broadcast starts
-  if (state && !state.isLive && state.secondsUntilStart > 0) {
-    return (
-      <div className="simulive-container">
-        <div className="aspect-video bg-gray-900 flex flex-col items-center justify-center rounded-lg">
+  // Determine what overlay to show
+  const showCountdown = state && !state.isLive && state.secondsUntilStart > 0;
+  const showEnded = state?.hasEnded;
+  const showPlayer = state?.isLive;
+
+  return (
+    <div className="simulive-container">
+      {/* Countdown overlay - shown before stream starts */}
+      {showCountdown && (
+        <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-30 rounded-lg">
           <div className="text-2xl font-bold mb-4">Stream Starting Soon</div>
           <div className="text-6xl font-mono tabular-nums">
             {formatTime(state.secondsUntilStart)}
           </div>
           <div className="text-gray-400 mt-4">{title}</div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  // After broadcast ends
-  if (state?.hasEnded) {
-    return (
-      <div className="simulive-container">
-        <div className="aspect-video bg-gray-900 flex flex-col items-center justify-center rounded-lg">
+      {/* Ended overlay - shown after stream ends */}
+      {showEnded && (
+        <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-30 rounded-lg">
           <div className="text-2xl font-bold mb-2">Stream Ended</div>
           <div className="text-gray-400">{title}</div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="simulive-container">
       {/* Live badge overlay */}
-      {state?.isLive && <div className="live-badge">Live</div>}
+      {showPlayer && <div className="live-badge">Live</div>}
 
       {/* Loading overlay */}
-      {isLoading && (
+      {isLoading && !showCountdown && !showEnded && (
         <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-20 rounded-lg">
           <div className="text-xl">Loading stream...</div>
         </div>
       )}
 
-      <MuxPlayer
-        ref={playerRef}
-        playbackId={playbackId}
-        streamType="live"
-        className="simulive-player aspect-video rounded-lg overflow-hidden"
-        metadata={{
-          video_title: title,
-        }}
-        // Disable seeking via hotkeys
-        hotkeys="noarrowleft noarrowright"
-        // Auto-play muted to comply with browser policies
-        autoPlay="muted"
-        // Event handlers
-        onLoadedMetadata={handleLoadedMetadata}
-        onSeeking={handleSeeking}
-        onPause={handlePause}
-      />
+      {/* Token error for signed content */}
+      {tokenError && (
+        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-20 rounded-lg">
+          <div className="text-xl text-red-400">{tokenError}</div>
+        </div>
+      )}
+
+      {/* Player is always mounted (but hidden during countdown/ended) for smooth transitions */}
+      {(playbackPolicy === "public" || tokens) && !tokenError && (
+        <MuxPlayer
+          ref={playerRef}
+          playbackId={playbackId}
+          streamType="live"
+          className="simulive-player aspect-video rounded-lg overflow-hidden"
+          metadata={{
+            video_title: title,
+          }}
+          // Disable seeking via hotkeys
+          hotkeys="noarrowleft noarrowright"
+          // Auto-play muted to comply with browser policies
+          autoPlay="muted"
+          // Event handlers
+          onLoadedMetadata={handleLoadedMetadata}
+          onSeeking={handleSeeking}
+          onPause={handlePause}
+          // Signed playback tokens
+          {...(tokens && {
+            tokens: {
+              playback: tokens["playback-token"],
+              thumbnail: tokens["thumbnail-token"],
+              storyboard: tokens["storyboard-token"],
+            },
+          })}
+        />
+      )}
     </div>
   );
 }

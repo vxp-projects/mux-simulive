@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -17,9 +17,10 @@ model Stream {
   title     String
 
   // Mux asset details
-  assetId    String  // Mux asset ID
-  playbackId String  // Mux playback ID
-  duration   Float   // Video duration in seconds (fetched from Mux)
+  assetId        String  // Mux asset ID
+  playbackId     String  // Mux playback ID
+  playbackPolicy String  @default("public") // "public" or "signed"
+  duration       Float   // Video duration in seconds (fetched from Mux)
 
   // Scheduling
   scheduledStart DateTime // When the "broadcast" starts

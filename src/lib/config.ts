@@ -22,3 +22,18 @@ export function getAdminPassword(): string | null {
 export function isMuxConfigured(): boolean {
   return !!(process.env.MUX_TOKEN_ID && process.env.MUX_TOKEN_SECRET);
 }
+
+export function getSigningKeys() {
+  const keyId = process.env.MUX_SIGNING_KEY;
+  const privateKey = process.env.MUX_PRIVATE_KEY;
+
+  if (!keyId || !privateKey) {
+    return null;
+  }
+
+  return { keyId, privateKey };
+}
+
+export function isSigningConfigured(): boolean {
+  return !!(process.env.MUX_SIGNING_KEY && process.env.MUX_PRIVATE_KEY);
+}

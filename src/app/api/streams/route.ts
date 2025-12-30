@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
         title,
         assetId,
         playbackId: assetInfo.playbackId,
+        playbackPolicy: assetInfo.playbackPolicy || "public",
         duration: assetInfo.duration || 0,
         scheduledStart: new Date(scheduledStart),
         syncInterval: syncInterval || 5000,

@@ -15,9 +15,6 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
-
 # Copy package files
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
@@ -45,9 +42,6 @@ USER nextjs
 
 # Expose port
 EXPOSE 3000
-
-# Data volume for SQLite
-VOLUME ["/app/data"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

@@ -1,4 +1,5 @@
 services:
+  # Main application
   simulive:
     build:
       context: .
@@ -12,20 +13,62 @@ services:
       - MUX_TOKEN_ID=${MUX_TOKEN_ID}
       - MUX_TOKEN_SECRET=${MUX_TOKEN_SECRET}
 
-      # Database URL (SQLite stored in volume)
-      - DATABASE_URL=file:/app/data/simulive.db
+      # Mux Signing Keys (required for signed/private assets)
+      - MUX_SIGNING_KEY=${MUX_SIGNING_KEY:-}
+      - MUX_PRIVATE_KEY=${MUX_PRIVATE_KEY:-}
+
+      # PostgreSQL Database URL
+      - DATABASE_URL=postgresql://simulive:${POSTGRES_PASSWORD:-simulive}@postgres:5432/simulive
+
+      # Redis URL for caching
+      - REDIS_URL=redis://redis:6379
 
       # Optional: Admin password to protect /admin
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-    volumes:
-      # Persist SQLite database
-      - simulive-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: simulive-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: simulive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simulive}
+      POSTGRES_DB: simulive
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U simulive -d simulive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: simulive-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  simulive-data:
+  postgres-data:
+  redis-data:

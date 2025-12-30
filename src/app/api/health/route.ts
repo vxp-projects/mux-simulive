@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
+import { getRedisClient, isRedisConfigured } from "@/lib/redis";
 
 /**
  * Health Check Endpoint
@@ -21,6 +22,26 @@ export async function GET() {
     };
   }
 
+  // Check Redis connection (if configured)
+  if (isRedisConfigured()) {
+    try {
+      const redis = getRedisClient();
+      if (redis) {
+        await redis.ping();
+        checks.redis = { status: "pass" };
+      } else {
+        checks.redis = { status: "fail", error: "Redis client not initialized" };
+      }
+    } catch (error) {
+      checks.redis = {
+        status: "fail",
+        error: error instanceof Error ? error.message : "Redis connection failed",
+      };
+    }
+  } else {
+    checks.redis = { status: "skip", error: "Redis not configured (optional)" };
+  }
+
   // Check Mux credentials are set
   const hasMuxCredentials =
     !!process.env.MUX_TOKEN_ID && !!process.env.MUX_TOKEN_SECRET;
@@ -28,8 +49,10 @@ export async function GET() {
     ? { status: "pass" }
     : { status: "fail", error: "MUX_TOKEN_ID or MUX_TOKEN_SECRET not set" };
 
-  // Determine overall health
-  const isHealthy = Object.values(checks).every((c) => c.status === "pass");
+  // Determine overall health (skip status counts as healthy)
+  const isHealthy = Object.values(checks).every(
+    (c) => c.status === "pass" || c.status === "skip"
+  );
 
   const response = {
     status: isHealthy ? "healthy" : "unhealthy",

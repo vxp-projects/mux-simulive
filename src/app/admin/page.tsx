@@ -21,6 +21,7 @@ interface Stream {
 interface MuxAsset {
   id: string;
   playbackId: string | null;
+  playbackPolicy: string | null;
   duration: number | null;
   status: string;
   createdAt: string;

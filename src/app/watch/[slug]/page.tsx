@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import SimulatedLivePlayer from "@/components/SimulatedLivePlayer";
 
+// Force dynamic rendering (database not available at build time)
+export const dynamic = "force-dynamic";
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -40,6 +43,7 @@ export default async function WatchPage({ params }: PageProps) {
       <div className="max-w-4xl mx-auto">
         <SimulatedLivePlayer
           playbackId={stream.playbackId}
+          playbackPolicy={stream.playbackPolicy}
           scheduledStart={stream.scheduledStart.toISOString()}
           videoDuration={stream.duration}
           title={stream.title}
