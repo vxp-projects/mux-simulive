@@ -2,74 +2,432 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Simulated Live Player Styles - Hide seeking controls */
-.simulive-player {
-  /* Hide the seek/scrub bar */
-  --time-range: none;
+/* ============================================
+   Simulated Live Player Styles
+   ============================================ */
 
-  /* Hide seek buttons */
+.simulive-player {
+  --time-range: none;
   --seek-backward-button: none;
   --seek-forward-button: none;
-
-  /* Hide time displays that reveal it's not truly live */
   --time-display: none;
   --duration-display: none;
-
-  /* Keep the live button visible */
   --live-button: block;
 }
 
-/* Optional: Style the player container */
 .simulive-container {
   position: relative;
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
+  background: #0a0a0a;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
 }
 
-/* Live indicator badge - Mux style */
-.live-badge {
+/* ============================================
+   Overlay States (shared)
+   ============================================ */
+
+.overlay-state {
   position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 10;
+  inset: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.2rem;
-  font-size: 0.65rem;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #0f0f1a 100%);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============================================
+   Loading State
+   ============================================ */
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.loading-spinner {
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+
+.spinner-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+}
+
+.spinner-ring:nth-child(1) {
+  border-top-color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-ring:nth-child(2) {
+  inset: 6px;
+  border-right-color: #8b5cf6;
+  animation: spin 1.5s linear infinite reverse;
+}
+
+.spinner-ring:nth-child(3) {
+  inset: 12px;
+  border-bottom-color: #ec4899;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: #9ca3af;
+  font-size: 0.95rem;
+  letter-spacing: 0.025em;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================================
+   Countdown State
+   ============================================ */
+
+.countdown-overlay {
+  overflow: hidden;
+}
+
+.countdown-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+/* Animated background rings */
+.countdown-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  animation: ripple 4s ease-out infinite;
+}
+
+.ring-1 {
+  width: 200px;
+  height: 200px;
+  animation-delay: 0s;
+}
+
+.ring-2 {
+  width: 350px;
+  height: 350px;
+  animation-delay: 1s;
+}
+
+.ring-3 {
+  width: 500px;
+  height: 500px;
+  animation-delay: 2s;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.countdown-title {
+  font-size: 1.5rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  transition: opacity 0.3s ease;
+  color: #fff;
+  text-align: center;
+  max-width: 80%;
+}
+
+.countdown-status {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.countdown-timer {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.countdown-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.countdown-value {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff 0%, #9ca3af 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.countdown-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.35rem;
+}
+
+.countdown-scheduled {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
+
+/* Starting soon state - more urgency */
+.countdown-overlay.starting-soon .countdown-status {
+  color: #f59e0b;
+  animation: urgentPulse 1s ease-in-out infinite;
+}
+
+.countdown-overlay.starting-soon .countdown-value {
+  background: linear-gradient(180deg, #f59e0b 0%, #ef4444 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.countdown-overlay.starting-soon .ring {
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+@keyframes urgentPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* ============================================
+   Ended State
+   ============================================ */
+
+.ended-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.ended-icon {
+  width: 64px;
+  height: 64px;
+  color: #10b981;
+  margin-bottom: 0.5rem;
+  animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.ended-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.ended-subtitle {
+  font-size: 1.1rem;
+  color: #9ca3af;
+}
+
+.ended-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+}
+
+/* ============================================
+   Error State
+   ============================================ */
+
+.error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.error-icon {
+  width: 48px;
+  height: 48px;
+  color: #ef4444;
+}
+
+.error-text {
+  font-size: 1.1rem;
+  color: #fca5a5;
+}
+
+/* ============================================
+   Live Badge
+   ============================================ */
+
+.live-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   pointer-events: none;
 }
 
 .live-badge.visible {
   opacity: 1;
+  transform: translateY(0);
 }
 
 .live-badge.hidden {
   opacity: 0;
+  transform: translateY(-0.5rem);
 }
 
 .live-dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  background: #e53935;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #ef4444;
   border-radius: 50%;
-  animation: live-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 8px #ef4444;
+  animation: livePulse 2s ease-in-out infinite;
 }
 
-@keyframes live-pulse {
+@keyframes livePulse {
   0%, 100% {
     opacity: 1;
-    transform: scale(1);
+    box-shadow: 0 0 8px #ef4444;
   }
   50% {
     opacity: 0.7;
-    transform: scale(0.9);
+    box-shadow: 0 0 16px #ef4444;
+  }
+}
+
+/* ============================================
+   Progress Bar
+   ============================================ */
+
+.progress-bar-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  transition: width 1s linear;
+  position: relative;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.8);
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media (max-width: 640px) {
+  .countdown-value {
+    font-size: 2rem;
+  }
+
+  .countdown-unit {
+    min-width: 50px;
+  }
+
+  .countdown-title {
+    font-size: 1.1rem;
+  }
+
+  .ended-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ended-title {
+    font-size: 1.25rem;
+  }
+
+  .live-badge {
+    top: 0.5rem;
+    left: 0.5rem;
+    font-size: 0.6rem;
+    padding: 0.25rem 0.5rem;
   }
 }

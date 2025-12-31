@@ -7,7 +7,6 @@ import {
   calculateSimuliveState,
   fetchServerTime,
   hasDrifted,
-  formatTime,
   type SimuliveConfig,
   type SimuliveState,
 } from "@/lib/simulive";
@@ -19,20 +18,34 @@ interface PlaybackTokens {
 }
 
 interface SimulatedLivePlayerProps {
-  /** Mux playback ID for the on-demand asset */
   playbackId: string;
-  /** Playback policy: "public" or "signed" */
   playbackPolicy?: string;
-  /** Scheduled start time (ISO 8601 string) */
   scheduledStart: string;
-  /** Video duration in seconds */
   videoDuration: number;
-  /** Optional title for the stream */
   title?: string;
-  /** How often to sync position (ms), default 5000 */
   syncInterval?: number;
-  /** Max allowed drift before forcing resync (seconds), default 3 */
   driftTolerance?: number;
+}
+
+// Format seconds into countdown display
+function formatCountdown(seconds: number): { days: number; hours: number; minutes: number; secs: number } {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return { days, hours, minutes, secs };
+}
+
+// Countdown digit component with flip animation
+function CountdownUnit({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="countdown-unit">
+      <div className="countdown-value">
+        {value.toString().padStart(2, "0")}
+      </div>
+      <div className="countdown-label">{label}</div>
+    </div>
+  );
 }
 
 export default function SimulatedLivePlayer({
@@ -53,6 +66,7 @@ export default function SimulatedLivePlayer({
   const [tokens, setTokens] = useState<PlaybackTokens | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [showBadge, setShowBadge] = useState(true);
+  const [playerReady, setPlayerReady] = useState(false);
 
   const config: SimuliveConfig = {
     scheduledStart,
@@ -61,7 +75,6 @@ export default function SimulatedLivePlayer({
     driftTolerance,
   };
 
-  // Track last sync time for clock jump detection
   const lastSyncTimeRef = useRef<number>(Date.now());
   const expectedElapsedRef = useRef<number>(0);
 
@@ -70,63 +83,47 @@ export default function SimulatedLivePlayer({
     try {
       const serverTime = await fetchServerTime();
       const now = Date.now();
-      // Offset = how much to add to local time to get server time
       const offset = serverTime - now;
       setServerTimeOffset(offset);
       lastSyncTimeRef.current = now;
       expectedElapsedRef.current = 0;
     } catch (error) {
       console.error("Failed to fetch server time:", error);
-      // Fall back to local time if server time unavailable
       setServerTimeOffset(0);
     }
   }, []);
 
-  // Initial calibration on mount
   useEffect(() => {
     calibrateTime();
   }, [calibrateTime]);
 
-  // Periodic recalibration every 60 seconds
   useEffect(() => {
-    const recalibrationInterval = setInterval(() => {
-      calibrateTime();
-    }, 60000);
-
+    const recalibrationInterval = setInterval(() => calibrateTime(), 60000);
     return () => clearInterval(recalibrationInterval);
   }, [calibrateTime]);
 
-  // Recalibrate on tab visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Tab became visible, recalibrate time
         calibrateTime();
       }
     };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [calibrateTime]);
 
-  // Detect clock jumps (system time changed)
   useEffect(() => {
     const clockCheckInterval = setInterval(() => {
       const now = Date.now();
       const actualElapsed = now - lastSyncTimeRef.current;
-      expectedElapsedRef.current += 5000; // Check runs every 5 seconds
-
-      // If elapsed time differs by more than 2 seconds from expected, clock probably jumped
+      expectedElapsedRef.current += 5000;
       if (Math.abs(actualElapsed - expectedElapsedRef.current) > 2000) {
-        console.log("Clock jump detected, recalibrating...");
         calibrateTime();
       }
     }, 5000);
-
     return () => clearInterval(clockCheckInterval);
   }, [calibrateTime]);
 
-  // Fetch tokens for signed playback
   useEffect(() => {
     if (playbackPolicy !== "signed") {
       setTokens(null);
@@ -136,9 +133,7 @@ export default function SimulatedLivePlayer({
     async function fetchTokens() {
       try {
         const res = await fetch(`/api/tokens/${playbackId}`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch tokens");
-        }
+        if (!res.ok) throw new Error("Failed to fetch tokens");
         const data = await res.json();
         setTokens(data);
         setTokenError(null);
@@ -150,12 +145,10 @@ export default function SimulatedLivePlayer({
     fetchTokens();
   }, [playbackId, playbackPolicy]);
 
-  // Get current synced time (local time adjusted by server offset)
   const getSyncedTime = useCallback(() => {
     return Date.now() + serverTimeOffset;
   }, [serverTimeOffset]);
 
-  // Sync player to correct position
   const syncPlayer = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
@@ -167,22 +160,14 @@ export default function SimulatedLivePlayer({
       const actualPosition = player.currentTime || 0;
       const expectedPosition = currentState.currentPosition;
 
-      // Only force sync if drifted beyond tolerance
       if (hasDrifted(actualPosition, expectedPosition, driftTolerance)) {
-        console.log(
-          `Syncing: actual=${actualPosition.toFixed(1)}s, expected=${expectedPosition.toFixed(1)}s`
-        );
         player.currentTime = expectedPosition;
       }
 
-      // Ensure playing
       if (player.paused) {
-        player.play().catch(() => {
-          // Autoplay might be blocked, that's okay
-        });
+        player.play().catch(() => {});
       }
     } else if (currentState.hasEnded) {
-      // Seek to end
       player.currentTime = videoDuration;
       player.pause();
     }
@@ -190,50 +175,38 @@ export default function SimulatedLivePlayer({
     setIsLoading(false);
   }, [config, getSyncedTime, driftTolerance, videoDuration]);
 
-  // Initial sync and periodic re-sync
   useEffect(() => {
-    // Initial sync after a short delay to let player load
     const initialTimer = setTimeout(syncPlayer, 500);
-
-    // Periodic sync
     const intervalId = setInterval(syncPlayer, syncInterval);
-
     return () => {
       clearTimeout(initialTimer);
       clearInterval(intervalId);
     };
   }, [syncPlayer, syncInterval]);
 
-  // Countdown ticker - updates every second while waiting for stream to start
   useEffect(() => {
     if (!state || state.isLive || state.hasEnded) return;
-
     const countdownInterval = setInterval(() => {
       const currentState = calculateSimuliveState(getSyncedTime(), config);
       setState(currentState);
     }, 1000);
-
     return () => clearInterval(countdownInterval);
   }, [state, config, getSyncedTime]);
 
-  // Handle player ready
   const handleLoadedMetadata = useCallback(() => {
+    setPlayerReady(true);
     syncPlayer();
   }, [syncPlayer]);
 
-  // Prevent seeking by immediately resyncing
   const handleSeeking = useCallback(() => {
-    // Immediately resync to prevent user from scrubbing
     syncPlayer();
   }, [syncPlayer]);
 
-  // Handle pause - resume playback if still live
   const handlePause = useCallback(() => {
     const currentState = calculateSimuliveState(getSyncedTime(), config);
     if (currentState.isLive) {
       const player = playerRef.current;
       if (player) {
-        // Small delay to prevent rapid pause/play cycles
         setTimeout(() => {
           if (player.paused && currentState.isLive) {
             player.play().catch(() => {});
@@ -243,67 +216,107 @@ export default function SimulatedLivePlayer({
     }
   }, [config, getSyncedTime]);
 
-  // Auto-hide live badge after 3 seconds, show on mouse activity
   const resetBadgeTimer = useCallback(() => {
     setShowBadge(true);
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-    }
-    hideTimerRef.current = setTimeout(() => {
-      setShowBadge(false);
-    }, 3000);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setShowBadge(false), 3000);
   }, []);
 
-  // Set up mouse activity listener for badge visibility
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
-    // Initial timer to hide badge
     resetBadgeTimer();
-
     const handleMouseMove = () => resetBadgeTimer();
-    const handleMouseEnter = () => resetBadgeTimer();
-
     container.addEventListener("mousemove", handleMouseMove);
-    container.addEventListener("mouseenter", handleMouseEnter);
-
+    container.addEventListener("mouseenter", handleMouseMove);
     return () => {
       container.removeEventListener("mousemove", handleMouseMove);
-      container.removeEventListener("mouseenter", handleMouseEnter);
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-      }
+      container.removeEventListener("mouseenter", handleMouseMove);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
   }, [resetBadgeTimer]);
 
-  // Determine what overlay to show
   const showCountdown = state && !state.isLive && state.secondsUntilStart > 0;
   const showEnded = state?.hasEnded;
   const showPlayer = state?.isLive;
 
+  // Calculate progress percentage
+  const progressPercent = state?.isLive
+    ? (state.currentPosition / videoDuration) * 100
+    : state?.hasEnded ? 100 : 0;
+
+  // Countdown values
+  const countdown = showCountdown && state ? formatCountdown(state.secondsUntilStart) : null;
+  const isStartingSoon = countdown && state && state.secondsUntilStart <= 60;
+
   return (
     <div className="simulive-container" ref={containerRef}>
-      {/* Countdown overlay - shown before stream starts */}
-      {showCountdown && (
-        <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-30 rounded-lg">
-          <div className="text-2xl font-bold mb-4">Stream Starting Soon</div>
-          <div className="text-6xl font-mono tabular-nums">
-            {formatTime(state.secondsUntilStart)}
+      {/* Countdown overlay */}
+      {showCountdown && countdown && (
+        <div className={`overlay-state countdown-overlay ${isStartingSoon ? 'starting-soon' : ''}`}>
+          <div className="countdown-content">
+            {/* Animated rings */}
+            <div className="countdown-rings">
+              <div className="ring ring-1"></div>
+              <div className="ring ring-2"></div>
+              <div className="ring ring-3"></div>
+            </div>
+
+            {/* Title */}
+            <div className="countdown-title">{title}</div>
+
+            {/* Status text */}
+            <div className="countdown-status">
+              {isStartingSoon ? "Starting soon..." : "Stream starts in"}
+            </div>
+
+            {/* Countdown display */}
+            <div className="countdown-timer">
+              {countdown.days > 0 && (
+                <CountdownUnit value={countdown.days} label="days" />
+              )}
+              <CountdownUnit value={countdown.hours} label="hrs" />
+              <CountdownUnit value={countdown.minutes} label="min" />
+              <CountdownUnit value={countdown.secs} label="sec" />
+            </div>
+
+            {/* Scheduled time */}
+            <div className="countdown-scheduled">
+              {new Date(scheduledStart).toLocaleString(undefined, {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+            </div>
           </div>
-          <div className="text-gray-400 mt-4">{title}</div>
         </div>
       )}
 
-      {/* Ended overlay - shown after stream ends */}
+      {/* Ended overlay */}
       {showEnded && (
-        <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center z-30 rounded-lg">
-          <div className="text-2xl font-bold mb-2">Stream Ended</div>
-          <div className="text-gray-400">{title}</div>
+        <div className="overlay-state ended-overlay">
+          <div className="ended-content">
+            <div className="ended-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="ended-title">Stream Ended</div>
+            <div className="ended-subtitle">{title}</div>
+            <div className="ended-info">
+              Aired on {new Date(scheduledStart).toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Live badge overlay - Mux-style indicator */}
+      {/* Live badge */}
       {showPlayer && (
         <div className={`live-badge ${showBadge ? "visible" : "hidden"}`}>
           <span className="live-dot" />
@@ -311,37 +324,56 @@ export default function SimulatedLivePlayer({
         </div>
       )}
 
+      {/* Progress bar */}
+      {showPlayer && (
+        <div className="progress-bar-container">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      )}
+
       {/* Loading overlay */}
       {isLoading && !showCountdown && !showEnded && (
-        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-20 rounded-lg">
-          <div className="text-xl">Loading stream...</div>
+        <div className="overlay-state loading-overlay">
+          <div className="loading-content">
+            <div className="loading-spinner">
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+              <div className="spinner-ring"></div>
+            </div>
+            <div className="loading-text">Connecting to stream...</div>
+          </div>
         </div>
       )}
 
-      {/* Token error for signed content */}
+      {/* Token error */}
       {tokenError && (
-        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-20 rounded-lg">
-          <div className="text-xl text-red-400">{tokenError}</div>
+        <div className="overlay-state error-overlay">
+          <div className="error-content">
+            <div className="error-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="error-text">{tokenError}</div>
+          </div>
         </div>
       )}
 
-      {/* Player is always mounted (but hidden during countdown/ended) for smooth transitions */}
+      {/* Player */}
       {(playbackPolicy === "public" || tokens) && !tokenError && (
         <MuxPlayer
           ref={playerRef}
           playbackId={playbackId}
           streamType="on-demand"
-          className="simulive-player aspect-video rounded-lg overflow-hidden"
-          metadata={{
-            video_title: title,
-          }}
-          // Auto-play muted to comply with browser policies
+          className={`simulive-player aspect-video rounded-lg overflow-hidden ${playerReady ? 'ready' : ''}`}
+          metadata={{ video_title: title }}
           autoPlay="muted"
-          // Event handlers
           onLoadedMetadata={handleLoadedMetadata}
           onSeeking={handleSeeking}
           onPause={handlePause}
-          // Signed playback tokens
           {...(tokens && {
             tokens: {
               playback: tokens["playback-token"],
