@@ -300,7 +300,7 @@ export default function DateTimePicker({ value, onChange }: DateTimePickerProps)
               className="bg-gray-800 border border-gray-700 rounded px-2 py-2 text-white
                          focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
             >
-              {["00", "15", "30", "45"].map(m => (
+              {["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map(m => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
