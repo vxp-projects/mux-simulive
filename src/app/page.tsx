@@ -2,15 +2,22 @@ import Link from "next/link";
 import prisma from "@/lib/db";
 import { formatTime } from "@/lib/simulive";
 
-// Force dynamic rendering (database not available at build time)
-export const dynamic = "force-dynamic";
+// ISR: Regenerate every 30 seconds for near-real-time updates
+// This dramatically reduces database load at scale
+export const revalidate = 30;
 
 export default async function Home() {
-  // Get active streams
-  const streams = await prisma.stream.findMany({
-    where: { isActive: true },
-    orderBy: { scheduledStart: "asc" },
-  });
+  // Get active streams (with fallback for build-time when DB isn't available)
+  let streams: Awaited<ReturnType<typeof prisma.stream.findMany>> = [];
+  try {
+    streams = await prisma.stream.findMany({
+      where: { isActive: true },
+      orderBy: { scheduledStart: "asc" },
+    });
+  } catch (error) {
+    // During build time, database may not be available
+    console.error("Failed to fetch streams:", error);
+  }
 
   const now = new Date();
 

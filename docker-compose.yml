@@ -1,5 +1,5 @@
 services:
-  # Main application
+  # Main application (4 clustered workers)
   simulive:
     build:
       context: .
@@ -8,6 +8,18 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
+    # Resource limits for 4 workers
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    # Increase file descriptor limits for high connection counts
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     environment:
       # Mux API Credentials (required)
       - MUX_TOKEN_ID=${MUX_TOKEN_ID}
