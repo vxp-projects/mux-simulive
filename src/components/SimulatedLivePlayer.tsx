@@ -240,11 +240,6 @@ export default function SimulatedLivePlayer({
   const showEnded = state?.hasEnded;
   const showPlayer = state?.isLive;
 
-  // Calculate progress percentage
-  const progressPercent = state?.isLive
-    ? (state.currentPosition / videoDuration) * 100
-    : state?.hasEnded ? 100 : 0;
-
   // Countdown values
   const countdown = showCountdown && state ? formatCountdown(state.secondsUntilStart) : null;
   const isStartingSoon = countdown && state && state.secondsUntilStart <= 60;
@@ -254,14 +249,32 @@ export default function SimulatedLivePlayer({
       {/* Countdown overlay */}
       {showCountdown && countdown && (
         <div className={`overlay-state countdown-overlay ${isStartingSoon ? 'starting-soon' : ''}`}>
-          <div className="countdown-content">
-            {/* Animated rings */}
-            <div className="countdown-rings">
-              <div className="ring ring-1"></div>
-              <div className="ring ring-2"></div>
-              <div className="ring ring-3"></div>
-            </div>
+          {/* Background animations */}
+          <div className="countdown-bg" />
 
+          {/* Edge glows */}
+          <div className="edge-glow" />
+          <div className="edge-glow-sides" />
+
+          {/* Corner accents */}
+          <div className="corner corner-tl" />
+          <div className="corner corner-tr" />
+          <div className="corner corner-bl" />
+          <div className="corner corner-br" />
+
+          {/* Floating particles */}
+          <div className="particles">
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+            <div className="particle" />
+          </div>
+
+          <div className="countdown-content">
             {/* Title */}
             <div className="countdown-title">{title}</div>
 
@@ -324,15 +337,6 @@ export default function SimulatedLivePlayer({
         </div>
       )}
 
-      {/* Progress bar */}
-      {showPlayer && (
-        <div className="progress-bar-container">
-          <div
-            className="progress-bar-fill"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      )}
 
       {/* Loading overlay */}
       {isLoading && !showCountdown && !showEnded && (
