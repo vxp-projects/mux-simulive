@@ -77,6 +77,6 @@ if (cluster.isPrimary) {
   process.env.PORT = process.env.PORT || "3000";
   process.env.HOSTNAME = process.env.HOSTNAME || "0.0.0.0";
 
-  // Load the standalone Next.js server
-  require("./.next/standalone/server.js");
+  // Load the standalone Next.js server (copied to root in Docker)
+  require("./server.js");
 }

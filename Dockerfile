@@ -55,8 +55,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy cluster server
-COPY --from=builder /app/server.js ./
+# Copy cluster entry point
+COPY --from=builder /app/cluster.js ./
 
 # Copy Prisma schema and full node_modules for CLI migrations
 COPY --from=builder /app/prisma ./prisma
@@ -74,4 +74,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Run migrations then start clustered server
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node cluster.js"]
