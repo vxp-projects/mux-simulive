@@ -20,6 +20,13 @@ Viewer load test
 Example:
   k6 run -e BASE_URL=https://simulive.cloudysky.xyz -e STREAM_SLUG=your-stream perf/viewer-load.js
 
+Viewer realistic load test
+- Mimics the SimulatedLivePlayer polling behavior with jitter and adaptive `/api/time` cadence
+- Hits `/watch/:slug` or `/embed/:slug`, `/api/time`, and `/api/streams/:slug/status`
+
+Example:
+  k6 run -e BASE_URL=https://simulive.cloudysky.xyz -e STREAM_SLUG=your-stream perf/viewer-realistic.js
+
 SSE load test
 - Opens long-lived connections to `/api/streams/:slug/events` to simulate viewer EventSource traffic
 - Uses a gradual ramp and hold to keep connections open
@@ -35,6 +42,9 @@ Environment variables
 - `SLEEP` (default: 1 or 2 seconds per script)
 - `STREAM_ID` or `STREAM_SLUG` (optional; otherwise first stream is used)
 - `ADMIN_PASSWORD` and `ENABLE_ADMIN=1` to hit admin-only endpoints
+- `USE_ADAPTIVE_TIME=0` to disable adaptive time polling in `viewer-realistic.js`
+- `JITTER_PERCENT` (default: 0.15) to tune polling jitter in `viewer-realistic.js`
+- `MIN_JITTER_MS` (default: 5000) minimum jittered interval in `viewer-realistic.js`
 - `CONNECTIONS` (default: 5000) SSE connections
 - `RAMP_UP` (default: 5m) SSE ramp duration
 - `HOLD` (default: 10m) SSE hold duration

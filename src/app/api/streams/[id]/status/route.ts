@@ -12,6 +12,36 @@ interface StreamStatus {
 }
 
 const STATUS_CACHE_TTL = 2; // 2 seconds - balance between responsiveness and load
+const inflightStatus = new Map<string, Promise<StreamStatus | null>>();
+
+async function fetchStreamStatus(id: string, cacheKey: string): Promise<StreamStatus | null> {
+  // Try to find by ID first, then by slug
+  let stream = await prisma.stream.findUnique({
+    where: { id },
+    select: { endedAt: true, isActive: true },
+  });
+
+  if (!stream) {
+    stream = await prisma.stream.findUnique({
+      where: { slug: id },
+      select: { endedAt: true, isActive: true },
+    });
+  }
+
+  if (!stream) {
+    return null;
+  }
+
+  const status: StreamStatus = {
+    endedAt: stream.endedAt?.toISOString() || null,
+    isActive: stream.isActive,
+  };
+
+  // Cache the result
+  await setCached(cacheKey, status, STATUS_CACHE_TTL);
+
+  return status;
+}
 
 // GET /api/streams/[id]/status - Lightweight status check for polling
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -34,30 +64,31 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Try to find by ID first, then by slug
-    let stream = await prisma.stream.findUnique({
-      where: { id },
-      select: { endedAt: true, isActive: true },
-    });
-
-    if (!stream) {
-      stream = await prisma.stream.findUnique({
-        where: { slug: id },
-        select: { endedAt: true, isActive: true },
+    const inflight = inflightStatus.get(cacheKey);
+    if (inflight) {
+      const status = await inflight;
+      if (!status) {
+        return NextResponse.json({ error: "Stream not found" }, { status: 404 });
+      }
+      return NextResponse.json(status, {
+        headers: { "X-Cache": "COALESCED" },
       });
     }
 
-    if (!stream) {
+    const fetchPromise = (async () => {
+      try {
+        return await fetchStreamStatus(id, cacheKey);
+      } finally {
+        inflightStatus.delete(cacheKey);
+      }
+    })();
+
+    inflightStatus.set(cacheKey, fetchPromise);
+
+    const status = await fetchPromise;
+    if (!status) {
       return NextResponse.json({ error: "Stream not found" }, { status: 404 });
     }
-
-    const status: StreamStatus = {
-      endedAt: stream.endedAt?.toISOString() || null,
-      isActive: stream.isActive,
-    };
-
-    // Cache the result
-    await setCached(cacheKey, status, STATUS_CACHE_TTL);
 
     return NextResponse.json(status, {
       headers: { "X-Cache": "MISS" },

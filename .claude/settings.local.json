@@ -18,7 +18,18 @@
       "mcp__plugin_playwright_playwright__browser_network_requests",
       "Bash(npx playwright test:*)",
       "Bash(curl:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(k6 version:*)",
+      "Bash(where:*)",
+      "Bash(dir:*)",
+      "Bash(node:*)",
+      "Bash(timeout:*)",
+      "Bash(ADMIN_PASSWORD=Lsdoodmt42 TARGET_DURATION=20m node:*)",
+      "Bash(\"C:\\\\Program Files\\\\k6\\\\k6.exe\" run -e STREAM_SLUG=e2e-perf-1769030848306 -e TARGET_VUS=5000 -e RAMP_UP=2m -e HOLD=5m -e RAMP_DOWN=1m perf/viewer-realistic.js)",
+      "Bash(\"C:\\\\Program Files\\\\k6\\\\k6.exe\" run -e STREAM_SLUG=e2e-perf-1769030848306 -e TARGET_VUS=10000 -e RAMP_UP=3m -e HOLD=5m -e RAMP_DOWN=1m perf/viewer-realistic.js)",
+      "Bash(\"C:\\\\Program Files\\\\k6\\\\k6.exe\" run -e STREAM_SLUG=e2e-perf-1769030848306 -e TARGET_VUS=20000 -e RAMP_UP=4m -e HOLD=5m -e RAMP_DOWN=1m perf/viewer-realistic.js)",
+      "Bash(\"C:\\\\Program Files\\\\k6\\\\k6.exe\" run -e STREAM_SLUG=e2e-perf-1769030848306 -e TARGET_VUS=15000 -e RAMP_UP=3m -e HOLD=5m -e RAMP_DOWN=1m perf/viewer-realistic.js)",
+      "Bash(\"C:\\\\Program Files\\\\k6\\\\k6.exe\" run -e STREAM_SLUG=e2e-perf-1769030848306 -e TARGET_VUS=12000 -e RAMP_UP=3m -e HOLD=5m -e RAMP_DOWN=1m perf/viewer-realistic.js)"
     ]
   }
 }
