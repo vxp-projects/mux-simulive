@@ -47,3 +47,19 @@ next-env.d.ts
 *.swp
 *.swo
 nul
+
+# Local tooling & temp files
+/.claude/
+/.playwright-mcp/
+/.tmp/
+/tmpclaude-*
+/e2e/tmpclaude-*
+
+# Perf/load test output
+/perf/reports/
+
+# Local reports/artifacts
+/report-extract/
+/playwright-report.html
+/report.json
+/report.zip
