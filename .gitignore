@@ -63,3 +63,9 @@ nul
 /playwright-report.html
 /report.json
 /report.zip
+
+# Root-level generated JSON (keep config JSON tracked)
+/*.json
+!/package.json
+!/package-lock.json
+!/tsconfig.json
