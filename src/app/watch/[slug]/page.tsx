@@ -68,6 +68,7 @@ export default async function WatchPage({ params }: PageProps) {
           driftTolerance={stream.driftTolerance}
           streamSlug={stream.slug}
           endedAt={stream.endedAt ? stream.endedAt.toISOString() : null}
+          initialPollMultiplier={stream.pollMultiplier}
         />
         <h1 className="text-2xl font-bold mt-6">{stream.title}</h1>
       </div>

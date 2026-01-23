@@ -59,6 +59,7 @@ export default async function EmbedPage({ params }: PageProps) {
         embedded
         streamSlug={stream.slug}
         endedAt={stream.endedAt ? stream.endedAt.toISOString() : null}
+        initialPollMultiplier={stream.pollMultiplier}
       />
     </div>
   );

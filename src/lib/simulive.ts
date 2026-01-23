@@ -49,6 +49,7 @@ export interface SimuliveState {
 export interface StreamStatus {
   endedAt: string | null;
   isActive: boolean;
+  pollMultiplier?: number;
 }
 
 export interface ServerTimeResponse {

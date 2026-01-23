@@ -24,6 +24,7 @@ interface Stream {
   isActive: boolean;
   syncInterval: number;
   driftTolerance: number;
+  pollMultiplier: number;
   endedAt: string | null;
   loopCount: number;
   items: PlaylistItem[];
@@ -55,6 +56,7 @@ export default function AdminPage() {
     slug: "",
     scheduledStart: "",
     loopCount: 1,
+    pollMultiplier: 1.0,
     assetIds: [] as string[],
   });
   const [editError, setEditError] = useState<string | null>(null);
@@ -265,6 +267,7 @@ export default function AdminPage() {
       slug: stream.slug,
       scheduledStart: scheduledDate.toISOString(),
       loopCount: stream.loopCount,
+      pollMultiplier: stream.pollMultiplier ?? 1.0,
       assetIds: stream.items.map((item) => item.assetId),
     });
     setEditError(null);
@@ -290,6 +293,7 @@ export default function AdminPage() {
           slug: editData.slug,
           scheduledStart: scheduledStartISO,
           loopCount: editData.loopCount,
+          pollMultiplier: editData.pollMultiplier,
           assetIds: editData.assetIds,
         }),
       });
@@ -875,6 +879,32 @@ export default function AdminPage() {
                 <p className="text-sm text-gray-500 mt-1">
                   Playlist will play {editData.loopCount} time
                   {editData.loopCount > 1 ? "s" : ""}
+                </p>
+              </div>
+
+              {/* Poll Multiplier */}
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Poll Multiplier
+                </label>
+                <select
+                  value={editData.pollMultiplier}
+                  onChange={(e) =>
+                    setEditData({
+                      ...editData,
+                      pollMultiplier: parseFloat(e.target.value),
+                    })
+                  }
+                  className="bg-gray-800 rounded px-3 py-2"
+                >
+                  <option value="0.25">0.25x (4x faster polling)</option>
+                  <option value="0.5">0.5x (2x faster polling)</option>
+                  <option value="1">1x (default)</option>
+                  <option value="2">2x (slower polling)</option>
+                  <option value="4">4x (much slower polling)</option>
+                </select>
+                <p className="text-sm text-gray-500 mt-1">
+                  Lower values = more frequent sync checks. Viewers receive updates live within ~3 minutes.
                 </p>
               </div>
 

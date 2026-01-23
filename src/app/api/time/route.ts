@@ -5,6 +5,7 @@ import { getCached, setCached, isRedisConfigured } from "@/lib/redis";
 interface StreamStatus {
   endedAt: string | null;
   isActive: boolean;
+  pollMultiplier: number;
 }
 
 const STATUS_CACHE_TTL = 2; // seconds
@@ -34,13 +35,13 @@ async function fetchStreamStatus(
   // Try to find by ID first, then by slug
   let stream = await prisma.stream.findUnique({
     where: { id },
-    select: { endedAt: true, isActive: true },
+    select: { endedAt: true, isActive: true, pollMultiplier: true },
   });
 
   if (!stream) {
     stream = await prisma.stream.findUnique({
       where: { slug: id },
-      select: { endedAt: true, isActive: true },
+      select: { endedAt: true, isActive: true, pollMultiplier: true },
     });
   }
 
@@ -51,6 +52,7 @@ async function fetchStreamStatus(
   const status: StreamStatus = {
     endedAt: stream.endedAt?.toISOString() || null,
     isActive: stream.isActive,
+    pollMultiplier: stream.pollMultiplier,
   };
 
   // Always cache in memory as fallback

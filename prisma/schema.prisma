@@ -30,6 +30,7 @@ model Stream {
   // Optional settings
   syncInterval    Int @default(5000)  // How often to sync (ms)
   driftTolerance  Int @default(2)     // Max drift before resync (seconds)
+  pollMultiplier  Float @default(1.0) // Multiplier for adaptive polling (0.5 = 2x faster, 2.0 = 2x slower)
 
   // Indexes for query performance
   @@index([isActive])

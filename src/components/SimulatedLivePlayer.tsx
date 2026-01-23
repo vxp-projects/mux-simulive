@@ -30,6 +30,7 @@ interface SimulatedLivePlayerProps {
   embedded?: boolean;
   streamSlug?: string; // For time + status checks
   endedAt?: string | null;
+  initialPollMultiplier?: number; // Admin-adjustable multiplier for polling intervals
 }
 
 // Format seconds into countdown display
@@ -48,19 +49,19 @@ function withJitter(interval: number, jitterPercent = 0.15): number {
   return Math.max(5000, Math.round(interval + jitter));
 }
 
-// Get adaptive polling interval based on stream state
-function getAdaptiveInterval(state: SimuliveState | null): number {
-  if (!state) return 30000; // 30s while loading
+// Get adaptive polling interval based on stream state and multiplier
+function getAdaptiveInterval(state: SimuliveState | null, multiplier: number = 1.0): number {
+  if (!state) return 30000 * multiplier; // 30s while loading
 
   if (state.hasEnded) return Infinity; // Stop polling entirely
 
-  if (state.isLive) return 180000; // 3 min when live
+  if (state.isLive) return 180000 * multiplier; // 3 min when live
 
   // Countdown - more frequent as we approach start
-  if (state.secondsUntilStart > 3600) return 600000;  // 10 min if >1hr away
-  if (state.secondsUntilStart > 300) return 180000;   // 3 min if >5min away
-  if (state.secondsUntilStart > 60) return 30000;     // 30s if >1min away
-  return 10000; // 10s in final minute
+  if (state.secondsUntilStart > 3600) return 600000 * multiplier;  // 10 min if >1hr away
+  if (state.secondsUntilStart > 300) return 180000 * multiplier;   // 3 min if >5min away
+  if (state.secondsUntilStart > 60) return 30000 * multiplier;     // 30s if >1min away
+  return 10000 * multiplier; // 10s in final minute
 }
 
 // Countdown digit component with flip animation
@@ -85,6 +86,7 @@ export default function SimulatedLivePlayer({
   embedded = false,
   streamSlug,
   endedAt,
+  initialPollMultiplier = 1.0,
 }: SimulatedLivePlayerProps) {
   // Dual player refs for seamless switching
   const playerRef0 = useRef<MuxPlayerElement | null>(null);
@@ -101,6 +103,7 @@ export default function SimulatedLivePlayer({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showCountdownOverlay, setShowCountdownOverlay] = useState(true);
   const [forceStopped, setForceStopped] = useState(() => !!endedAt);
+  const [pollMultiplier, setPollMultiplier] = useState(initialPollMultiplier);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [activePlayer, setActivePlayer] = useState<0 | 1>(0); // Which player is visible
   const activePlayerIndexRef = useRef<0 | 1>(0);
@@ -156,6 +159,10 @@ export default function SimulatedLivePlayer({
         if (ended) {
           getActivePlayer()?.pause();
         }
+        // Live-update poll multiplier from server (admin can adjust on the fly)
+        if (data.stream.pollMultiplier !== undefined) {
+          setPollMultiplier(data.stream.pollMultiplier);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch server time:", error);
@@ -171,7 +178,7 @@ export default function SimulatedLivePlayer({
     let timeoutId: NodeJS.Timeout;
 
     function scheduleNextCalibration() {
-      const interval = getAdaptiveInterval(state);
+      const interval = getAdaptiveInterval(state, pollMultiplier);
       if (!isFinite(interval)) return; // Don't schedule if stream ended
 
       const jitteredInterval = withJitter(interval);
@@ -183,7 +190,7 @@ export default function SimulatedLivePlayer({
 
     scheduleNextCalibration();
     return () => clearTimeout(timeoutId);
-  }, [calibrateTime, state?.isLive, state?.hasEnded, state?.secondsUntilStart]);
+  }, [calibrateTime, state?.isLive, state?.hasEnded, state?.secondsUntilStart, pollMultiplier]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {

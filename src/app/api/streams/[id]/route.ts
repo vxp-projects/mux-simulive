@@ -83,6 +83,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       "driftTolerance",
       "endedAt",
       "loopCount",
+      "pollMultiplier",
     ];
 
     const updateData: Record<string, unknown> = {};
@@ -98,6 +99,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         } else if (field === "loopCount") {
           // loopCount must be between 1 and 10
           updateData[field] = Math.min(10, Math.max(1, body[field]));
+        } else if (field === "pollMultiplier") {
+          // pollMultiplier must be between 0.1 and 10
+          updateData[field] = Math.min(10, Math.max(0.1, parseFloat(body[field]) || 1.0));
         } else {
           updateData[field] = body[field];
         }
@@ -215,8 +219,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Invalidate caches after update
     await invalidateStreamsCache();
 
-    // Invalidate status cache if endedAt or isActive changed (for force-stop polling)
-    if (updateData.endedAt !== undefined || updateData.isActive !== undefined) {
+    // Invalidate status cache if endedAt, isActive, or pollMultiplier changed
+    if (updateData.endedAt !== undefined || updateData.isActive !== undefined || updateData.pollMultiplier !== undefined) {
       await invalidateStatusCache(stream.id, stream.slug);
     }
 
