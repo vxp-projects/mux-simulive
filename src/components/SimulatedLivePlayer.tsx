@@ -28,7 +28,7 @@ interface SimulatedLivePlayerProps {
   syncInterval?: number; // Local sync check interval (no server calls)
   driftTolerance?: number;
   embedded?: boolean;
-  streamSlug?: string; // For SSE/polling stream status (force-stop detection)
+  streamSlug?: string; // For time + status checks
   endedAt?: string | null;
 }
 
@@ -145,14 +145,22 @@ export default function SimulatedLivePlayer({
   // Calibrate server time offset
   const calibrateTime = useCallback(async () => {
     try {
-      const serverTime = await fetchServerTime();
+      const data = await fetchServerTime(streamSlug);
       const now = Date.now();
-      const offset = serverTime - now;
+      const offset = data.serverTime - now;
       setServerTimeOffset(offset);
+
+      if (streamSlug && data.stream) {
+        const ended = !!data.stream.endedAt;
+        setForceStopped(ended);
+        if (ended) {
+          getActivePlayer()?.pause();
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch server time:", error);
     }
-  }, []);
+  }, [streamSlug, getActivePlayer]);
 
   useEffect(() => {
     calibrateTime();
@@ -177,17 +185,10 @@ export default function SimulatedLivePlayer({
     return () => clearTimeout(timeoutId);
   }, [calibrateTime, state?.isLive, state?.hasEnded, state?.secondsUntilStart]);
 
-  // Check stream status on visibility change (for immediate force-stop detection when returning to tab)
-  const checkStreamStatusRef = useRef<(() => Promise<void>) | null>(null);
-
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         calibrateTime();
-        // Also check stream status immediately when returning to tab
-        if (checkStreamStatusRef.current) {
-          checkStreamStatusRef.current();
-        }
       }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -280,103 +281,7 @@ export default function SimulatedLivePlayer({
     };
   }, [nextItem, tokenCache]);
 
-  // SSE for instant force-stop detection, with polling fallback
-  useEffect(() => {
-    if (!streamSlug) {
-      checkStreamStatusRef.current = null;
-      return;
-    }
-
-    let eventSource: EventSource | null = null;
-    let pollTimeoutId: NodeJS.Timeout | null = null;
-    let usePollingFallback = false;
-
-    // Polling fallback function
-    async function checkStreamStatus() {
-      try {
-        const res = await fetch(`/api/streams/${streamSlug}/status`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const ended = !!data.endedAt;
-        setForceStopped(ended);
-        if (ended) {
-          const player = getActivePlayer();
-          if (player) player.pause();
-        }
-      } catch (error) {
-        console.error("[Polling] Failed to check stream status:", error);
-      }
-    }
-
-    // Store ref for visibility change handler
-    checkStreamStatusRef.current = checkStreamStatus;
-
-    // Schedule next poll with jitter (only used as fallback)
-    function scheduleNextPoll() {
-      if (!usePollingFallback) return;
-      const interval = withJitter(30000); // 30s fallback polling
-      pollTimeoutId = setTimeout(() => {
-        checkStreamStatus();
-        scheduleNextPoll();
-      }, interval);
-    }
-
-    // Start polling fallback
-    function startPollingFallback() {
-      if (usePollingFallback) return;
-      usePollingFallback = true;
-      console.log("[SSE] Falling back to polling");
-      checkStreamStatus(); // Immediate check
-      scheduleNextPoll();
-    }
-
-    // Try SSE first (only when stream might be live)
-    function startSSE() {
-      eventSource = new EventSource(`/api/streams/${streamSlug}/events`);
-
-      eventSource.addEventListener("connected", (e) => {
-        const data = JSON.parse(e.data);
-        if (data.fallback) {
-          // Server indicated SSE is not available (no Redis)
-          console.log("[SSE] Server indicated fallback mode");
-          eventSource?.close();
-          startPollingFallback();
-        } else {
-          console.log("[SSE] Connected to stream events");
-        }
-      });
-
-      eventSource.addEventListener("stopped", (e) => {
-        const data = JSON.parse(e.data);
-        console.log("[SSE] Stream stopped:", data);
-        setForceStopped(true);
-        getActivePlayer()?.pause();
-        eventSource?.close();
-      });
-
-      eventSource.addEventListener("resumed", () => {
-        console.log("[SSE] Stream resumed");
-        setForceStopped(false);
-      });
-
-      eventSource.onerror = () => {
-        console.warn("[SSE] Connection error");
-        eventSource?.close();
-        eventSource = null;
-        startPollingFallback();
-      };
-    }
-
-    // Check initial status, then start SSE
-    checkStreamStatus();
-    startSSE();
-
-    return () => {
-      eventSource?.close();
-      if (pollTimeoutId) clearTimeout(pollTimeoutId);
-      checkStreamStatusRef.current = null;
-    };
-  }, [streamSlug, getActivePlayer]);
+  // Stream status piggybacks on /api/time updates (no SSE).
 
   const getSyncedTime = useCallback(() => {
     return Date.now() + serverTimeOffset;

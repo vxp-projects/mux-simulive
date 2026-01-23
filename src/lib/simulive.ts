@@ -46,6 +46,17 @@ export interface SimuliveState {
   totalDuration: number;
 }
 
+export interface StreamStatus {
+  endedAt: string | null;
+  isActive: boolean;
+}
+
+export interface ServerTimeResponse {
+  serverTime: number;
+  iso: string;
+  stream?: StreamStatus | null;
+}
+
 /**
  * Calculate total duration of playlist (single pass)
  */
@@ -154,8 +165,13 @@ export function formatTime(seconds: number): string {
  * Fetch the current server time
  * This ensures all clients use the same time source
  */
-export async function fetchServerTime(): Promise<number> {
-  const response = await fetch("/api/time");
+export async function fetchServerTime(
+  streamSlug?: string
+): Promise<ServerTimeResponse> {
+  const url = streamSlug
+    ? `/api/time?stream=${encodeURIComponent(streamSlug)}`
+    : "/api/time";
+  const response = await fetch(url);
   const data = await response.json();
-  return data.serverTime;
+  return data;
 }

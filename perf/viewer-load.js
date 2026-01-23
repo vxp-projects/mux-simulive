@@ -43,8 +43,8 @@ export default function (data) {
   const embedRes = http.get(`${BASE_URL}/embed/${data.slug}`);
   check(embedRes, { "embed ok": (res) => res.status === 200 });
 
-  const statusRes = http.get(`${BASE_URL}/api/streams/${data.slug}/status`);
-  check(statusRes, { "status ok": (res) => res.status === 200 });
+  const timeRes = http.get(`${BASE_URL}/api/time?stream=${data.slug}`);
+  check(timeRes, { "time ok": (res) => res.status === 200 });
 
   sleep(SLEEP);
 }

@@ -65,8 +65,8 @@ export default function (data) {
   check(timeRes, { "time ok": (res) => res.status === 200 });
 
   if (statusId) {
-    const statusRes = http.get(`${BASE_URL}/api/streams/${statusId}/status`);
-    check(statusRes, { "status ok": (res) => res.status === 200 });
+    const timeResWithStream = http.get(`${BASE_URL}/api/time?stream=${statusId}`);
+    check(timeResWithStream, { "time with stream ok": (res) => res.status === 200 });
   }
 
   if (ENABLE_ADMIN && data.authCookie) {

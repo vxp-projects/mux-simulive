@@ -7,7 +7,7 @@ Prerequisites
 - Set `BASE_URL` if not using the default staging URL.
 
 API load test
-- Hits `/api/health`, `/api/streams`, `/api/time`, and `/api/streams/:id/status`
+- Hits `/api/health`, `/api/streams`, `/api/time`, and `/api/time?stream=:id`
 - Optional admin endpoint `/api/mux/assets` when `ENABLE_ADMIN=1`
 
 Example:
@@ -15,14 +15,14 @@ Example:
   k6 run -e BASE_URL=https://simulive.cloudysky.xyz -e ADMIN_PASSWORD=... -e ENABLE_ADMIN=1 perf/api-load.js
 
 Viewer load test
-- Hits `/watch/:slug`, `/embed/:slug`, and `/api/streams/:slug/status`
+- Hits `/watch/:slug`, `/embed/:slug`, and `/api/time?stream=:slug`
 
 Example:
   k6 run -e BASE_URL=https://simulive.cloudysky.xyz -e STREAM_SLUG=your-stream perf/viewer-load.js
 
 Viewer realistic load test
 - Mimics the SimulatedLivePlayer polling behavior with jitter and adaptive `/api/time` cadence
-- Hits `/watch/:slug` or `/embed/:slug`, `/api/time`, and `/api/streams/:slug/status`
+- Hits `/watch/:slug` or `/embed/:slug` and `/api/time?stream=:slug`
 
 Example:
   k6 run -e BASE_URL=https://simulive.cloudysky.xyz -e STREAM_SLUG=your-stream perf/viewer-realistic.js

@@ -8,7 +8,6 @@ const RAMP_UP = __ENV.RAMP_UP || "5m";
 const HOLD = __ENV.HOLD || "10m";
 const RAMP_DOWN = __ENV.RAMP_DOWN || "3m";
 const LOOP_SLEEP = Number(__ENV.LOOP_SLEEP || 1);
-const STATUS_INTERVAL = Number(__ENV.STATUS_INTERVAL || 30);
 const TIME_INTERVAL = Number(__ENV.TIME_INTERVAL || 180);
 const WATCH_SHARE = Number(__ENV.WATCH_SHARE || 0.4);
 const STREAM_SLUG = __ENV.STREAM_SLUG || "";
@@ -20,8 +19,6 @@ const pageErrors = new Counter("page_errors");
 const pageOkRate = new Rate("page_ok_rate");
 const timeErrors = new Counter("time_errors");
 const timeOkRate = new Rate("time_ok_rate");
-const statusErrors = new Counter("status_errors");
-const statusOkRate = new Rate("status_ok_rate");
 
 export const options = {
   scenarios: {
@@ -45,7 +42,6 @@ export const options = {
 let viewerInitialized = false;
 let viewerSlug = "";
 let viewerMode = "watch";
-let nextStatusCheckAt = 0;
 let nextTimeCheckAt = 0;
 let serverTimeOffset = 0;
 let streamTiming = null;
@@ -132,9 +128,6 @@ function recordResult(res, okRate, errorCounter) {
   return ok;
 }
 
-function scheduleNextStatusCheck(now) {
-  nextStatusCheckAt = now + withJitter(STATUS_INTERVAL * 1000);
-}
 
 function scheduleNextTimeCheck(now) {
   let intervalMs = TIME_INTERVAL * 1000;
@@ -165,17 +158,12 @@ function initViewer(data) {
   const pageOk = recordResult(pageRes, pageOkRate, pageErrors);
   check(pageRes, { "page ok": () => pageOk });
 
-  const timeRes = http.get(`${BASE_URL}/api/time`);
+  const timeRes = http.get(`${BASE_URL}/api/time?stream=${viewerSlug}`);
   const timeOk = recordResult(timeRes, timeOkRate, timeErrors);
   check(timeRes, { "time ok": () => timeOk });
   updateServerTimeOffset(timeRes);
 
-  const statusRes = http.get(`${BASE_URL}/api/streams/${viewerSlug}/status`);
-  const statusOk = recordResult(statusRes, statusOkRate, statusErrors);
-  check(statusRes, { "status ok": () => statusOk });
-
   const now = Date.now();
-  scheduleNextStatusCheck(now);
   scheduleNextTimeCheck(now);
   viewerInitialized = true;
 }
@@ -193,15 +181,8 @@ export default function (data) {
   }
 
   const now = Date.now();
-  if (now >= nextStatusCheckAt) {
-    const statusRes = http.get(`${BASE_URL}/api/streams/${viewerSlug}/status`);
-    const statusOk = recordResult(statusRes, statusOkRate, statusErrors);
-    check(statusRes, { "status ok": () => statusOk });
-    scheduleNextStatusCheck(now);
-  }
-
   if (now >= nextTimeCheckAt) {
-    const timeRes = http.get(`${BASE_URL}/api/time`);
+    const timeRes = http.get(`${BASE_URL}/api/time?stream=${viewerSlug}`);
     const timeOk = recordResult(timeRes, timeOkRate, timeErrors);
     check(timeRes, { "time ok": () => timeOk });
     updateServerTimeOffset(timeRes);
