@@ -57,6 +57,7 @@ COPY --from=builder /app/public ./public
 
 # Copy cluster entry point
 COPY --from=builder /app/cluster.js ./
+COPY --from=builder /app/sse-server.js ./
 
 # Copy Prisma schema and full node_modules for CLI migrations
 COPY --from=builder /app/prisma ./prisma
