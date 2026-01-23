@@ -13,6 +13,8 @@ $writer.WriteLine("GO")
 $client.Close()
 $listener.Stop()
 
+New-Item -ItemType Directory -Force -Path "perf/reports" | Out-Null
+
 $env:BASE_URL="https://simulive.cloudysky.xyz"
 $env:STREAM_SLUG="e2e-perf-1769037714892"
 $env:CONNECTIONS="5000"

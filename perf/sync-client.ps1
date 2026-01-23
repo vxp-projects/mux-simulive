@@ -7,6 +7,7 @@ $reader = New-Object System.IO.StreamReader($client.GetStream())
 $line = $reader.ReadLine()
 
 if ($line -eq "GO") {
+  New-Item -ItemType Directory -Force -Path "perf/reports" | Out-Null
   $env:BASE_URL="https://simulive.cloudysky.xyz"
   $env:STREAM_SLUG="e2e-perf-1769037714892"
   $env:CONNECTIONS="5000"
