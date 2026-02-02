@@ -90,41 +90,7 @@ test.describe('Suite 11: Error Recovery', () => {
     );
   });
 
-  test('11.2: SSE falls back to polling when connection fails', async ({ page }) => {
-    // Increase timeout for this test since we're waiting for polling fallback
-    test.setTimeout(60000);
-
-    if (!recoveryStream) {
-      test.skip(true, 'No active recovery stream available');
-      return;
-    }
-
-    // Step 2: Block SSE endpoint to force fallback
-    await page.route('**/api/streams/*/events', (route) => {
-      route.abort('connectionfailed');
-    });
-
-    // Step 3: Track status endpoint calls (polling fallback)
-    let statusCalls = 0;
-    await page.route('**/api/streams/*/status', (route) => {
-      statusCalls++;
-      route.continue();
-    });
-
-    // Step 4: Navigate to watch page
-    await page.goto(`${config.baseUrl}/watch/${recoveryStream.slug}`);
-    await page.waitForSelector('mux-player', { timeout: 15000 });
-
-    // Step 5: Wait for fallback polling to kick in
-    // SSE fails immediately, initial status check happens, then polling at 30s intervals
-    await page.waitForTimeout(35000);
-
-    // Expected Result: At least initial status check made
-    console.log(`Status endpoint calls (polling fallback): ${statusCalls}`);
-    expect(statusCalls).toBeGreaterThan(0);
-  });
-
-  test('11.3: API handles concurrent requests under load', async () => {
+  test('11.2: API handles concurrent requests under load', async () => {
     // Step 1: Make 20 parallel requests to streams endpoint
     const requests = Array(20)
       .fill(null)

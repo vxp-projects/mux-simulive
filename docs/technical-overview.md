@@ -79,23 +79,17 @@ The browser does simple math (no server needed):
 
 ---
 
-#### Step 4: "Did the admin stop the stream?"
+#### Step 4: "Is the stream still active?"
 
-**Method A - INSTANT (preferred):**
-```
-    Browser  <========  "STOPPED!"  ========  Server
-             (live connection, instant notification)
-```
-
-**Method B - FALLBACK:**
 ```
     Browser  ------- "Still going?" ------->  Server
     Browser  <-------- "Yep / Nope" --------  Server
-             (asks every 30 seconds)
+             (checks stream status alongside time sync)
 ```
 
-> Fallback polling is only used when the SSE connection drops. Redis is required
-> for both status polling and SSE events.
+The `/api/time?stream=...` response includes stream status (`endedAt`, `isActive`)
+so the client can pause/stop playback or show "unavailable" without a separate
+real-time channel. Redis is used for caching where available.
 
 ---
 
@@ -120,20 +114,20 @@ The browser does simple math (no server needed):
 +======================================|====================================+
                                        |
          +-----------------------------+-----------------------------+
-         |                             |                             |
-         v                             v                             v
-+------------------+      +------------------+      +------------------------+
-|  Time Service    |      |  Status Service  |      |  Event Stream (SSE)    |
-|  /api/time       |      |  /api/~~/status  |      |  /api/~~/events        |
-|                  |      |                  |      |                        |
-|  "What time      |      |  "Is stream      |      |  Instant notifications |
-|   is it?"        |      |   still on?"     |      |  when admin acts       |
-|                  |      |                  |      |                        |
-|  Called on load  |      |  Backup method   |      |  Always connected      |
-|  + adaptive poll |      |  if SSE fails    |      |  while watching        |
-+--------+---------+      +--------+---------+      +-----------+------------+
-         |                         |                            |
-         +-------------------------+----------------------------+
+         |                             |
+         v                             v
++------------------+      +------------------+
+|  Time Service    |      |  Status Service  |
+|  /api/time       |      |  /api/~~/status  |
+|                  |      |                  |
+|  "What time      |      |  "Is stream      |
+|   is it?"        |      |   still on?"     |
+|                  |      |                  |
+|  Called on load  |      |  Optional check  |
+|  + adaptive poll |      |  (if needed)     |
++--------+---------+      +--------+---------+
+         |                         |
+         +-------------------------+
                                    |
                                    v
 +===========================================================================+
@@ -147,14 +141,14 @@ The browser does simple math (no server needed):
 |   |  - Stream info   |    |  - Requests      |    |  - Video streaming  |  |
 |   |  - Playlists     |    |  - Sessions      |    |  - Adaptive quality |  |
 |   |  - Admin logs    |    |  - Rate limits   |    |  - Global CDN       |  |
-|   |  - Schedules     |    |  - Live events   |    |  - Secure playback  |  |
+|   |  - Schedules     |    |  - Caching       |    |  - Secure playback  |  |
 |   +------------------+    +------------------+    +---------------------+  |
 |                                                                           |
 +===========================================================================+   
 ```
 
-Redis is required for status polling, SSE events, token caching, admin sessions,
-and rate limiting. If Redis is not configured, those endpoints return 503.
+Redis is required for caching (streams/status/tokens), admin sessions, and rate
+limiting. If Redis is not configured, those endpoints return 503.
 
 ---
 
@@ -164,7 +158,7 @@ and rate limiting. If Redis is not configured, those endpoints return 503.
 |-----------|----------|
 | Viewers have inaccurate device clocks | Server provides the "official" time |
 | Need to handle 10,000+ viewers | Time endpoint is cached at CDN edge |
-| Admin needs to stop streams instantly | Real-time events via Server-Sent Events |
+| Admin needs to stop streams | Status updates via time polling |
 | Network hiccups cause video drift | Automatic correction on the sync interval (default 5s) |
 | Can't trust client-side calculations alone | Server time is the single source of truth |
 
@@ -217,14 +211,13 @@ Security audit trail.
 ### Viewer APIs (No Auth)
 
 Redis is required for `/api/streams`, `/api/streams/[id]/status`,
-`/api/streams/[id]/events`, and `/api/tokens/[playbackId]`.
+and `/api/tokens/[playbackId]`.
 
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/time` | Server timestamp (edge-cached 1s) |
 | `GET /api/streams` | List all streams (cached 30s) |
 | `GET /api/streams/[id]/status` | Lightweight force-stop check (cached 2s) |
-| `GET /api/streams/[id]/events` | SSE for real-time stop/resume events |
 | `GET /api/tokens/[playbackId]` | Signed playback tokens (cached 6hr) |
 
 ### Admin APIs (Auth Required when ADMIN_PASSWORD is set)
@@ -304,34 +297,22 @@ The player adjusts server polling frequency based on stream state:
 | Countdown (5-60min) | 3 min | 3 min |
 | Countdown (1-5min) | 30s | 30s |
 | Countdown (<1min) | 10s | 10s |
-| **Live** | 3 min | **SSE (instant)** |
+| **Live** | 3 min | 3 min |
 | Ended | Stopped | Stopped |
 
 **Jitter**: All intervals have ±15% random variation to prevent synchronized traffic spikes.
 
-Status polling is only used when SSE disconnects; Redis is required for status
-and events endpoints.
+Status is returned alongside time in `/api/time?stream=...` so the same cadence
+drives both time sync and stream state updates.
 
 ---
 
 ## Force-Stop Detection
 
-When an admin stops a stream, viewers need to know immediately:
-
-### Primary: Server-Sent Events (SSE)
-```
-Client ──── EventSource('/api/streams/{slug}/events') ────► Server
-       ◄──── event: stopped ────────────────────────────────
-```
-
-- Instant notification
-- Single persistent connection
-- Redis pub/sub broadcasts to all connected clients
-
-### Fallback: Polling
-If SSE connection drops:
-- Polls `/api/streams/{slug}/status` every 30s
-- Checks `endedAt` field
+When an admin stops or resumes a stream, viewers learn on the next
+`/api/time?stream=...` poll. The status fields (`endedAt`, `isActive`) are
+returned in the same response as server time, so the player can stop playback
+or show "unavailable" without a separate real-time channel.
 
 ---
 
@@ -455,7 +436,7 @@ Redis is required; caching for stream lists, status, and tokens is not optional.
 MUX_TOKEN_ID=xxx          # Mux API credentials
 MUX_TOKEN_SECRET=xxx
 DATABASE_URL=postgres://  # PostgreSQL connection
-REDIS_URL=redis://        # Caching, sessions, SSE, tokens
+REDIS_URL=redis://        # Caching, sessions, tokens
 
 # Recommended for Production
 ADMIN_PASSWORD=xxx        # Protects /admin (unset = open access)
@@ -489,7 +470,6 @@ simulive-test/
 │   │       │   └── [id]/
 │   │       │       ├── route.ts    # GET, PATCH, DELETE
 │   │       │       ├── status/     # Lightweight polling
-│   │       │       └── events/     # SSE real-time
 │   │       ├── tokens/             # Signed playback tokens
 │   │       ├── mux/assets/         # Mux asset listing
 │   │       ├── health/             # Container health check
@@ -502,7 +482,7 @@ simulive-test/
 │   │   ├── simulive.ts             # Core sync logic
 │   │   ├── mux.ts                  # Mux API client
 │   │   ├── auth.ts                 # Admin authentication
-│   │   ├── redis.ts                # Caching, pub/sub, rate limiting
+│   │   ├── redis.ts                # Caching, sessions, rate limiting
 │   │   ├── audit.ts                # Audit logging
 │   │   ├── db.ts                   # Prisma singleton
 │   │   └── config.ts               # Environment helpers
@@ -519,9 +499,8 @@ simulive-test/
 |------|---------|
 | `src/lib/simulive.ts` | Core sync calculations |
 | `src/components/SimulatedLivePlayer.tsx` | Main player component |
-| `src/app/api/streams/[id]/events/route.ts` | SSE endpoint |
 | `src/app/api/time/route.ts` | Server time endpoint |
-| `src/lib/redis.ts` | Caching, pub/sub, rate limiting |
+| `src/lib/redis.ts` | Caching, sessions, rate limiting |
 | `src/lib/auth.ts` | Admin authentication |
 | `src/app/admin/(protected)/layout.tsx` | Server-side admin gate |
 | `src/middleware.ts` | Route protection |
@@ -538,9 +517,13 @@ simulive-test/
 - **Database**: PostgreSQL + Prisma ORM - Persistent storage for streams,
   playlists, and audit logs
 - **Cache**: Redis (ioredis) - Required for caching, admin sessions, rate
-  limiting, pub/sub SSE, and token caching
+  limiting, and token caching
 - **Video**: Mux Video + Mux Player - HLS playback, assets, and optional signed
   token support
 - **Styling**: Tailwind CSS - Utility-first styling across viewer and admin UI
 - **Deployment**: Docker + `cluster.js` - Next.js standalone runtime with 4
   workers; compose runs Postgres and Redis
+
+
+
+

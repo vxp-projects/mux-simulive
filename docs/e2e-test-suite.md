@@ -32,7 +32,7 @@ npm run dev
 | Viewer Experience | 8 | High |
 | Embed Functionality | 4 | Medium |
 | Audit Logs | 5 | Medium |
-| API Validation | 10 | High |
+| API Validation | 9 | High |
 | Cache Behavior | 4 | Low |
 
 ---
@@ -567,8 +567,8 @@ npm run dev
 
 ---
 
-### Test 4.7: Real-Time Stop Notification
-**Purpose:** Verify viewer receives instant stop notification.
+### Test 4.7: Stop Notification via Polling
+**Purpose:** Verify viewer receives stop notification via time polling.
 
 **Precondition:** Stream is live, viewer has page open.
 
@@ -578,13 +578,13 @@ npm run dev
 3. Observe viewer page
 
 **Expected Result:**
-- Viewer page updates within seconds
+- Viewer page updates on the next `/api/time?stream=...` poll
 - Shows "Stream stopped" or ended state
 - No manual refresh needed
 
 **Verification:**
 - Page state changes automatically
-- SSE event received (check network tab)
+- Time polling continues and status reflects `endedAt`
 
 ---
 
@@ -896,26 +896,7 @@ npm run dev
 
 ---
 
-### Test 7.7: GET /api/streams/[id]/events (SSE)
-**Purpose:** Verify SSE connection.
-
-**Steps:**
-1. Connect to `/api/streams/[id]/events` as EventSource
-2. Wait for initial message
-3. Trigger stream stop from admin
-4. Observe event
-
-**Expected Result:**
-- Initial "connected" event received
-- "stopped" event when admin stops stream
-
-**Verification:**
-- Connection stays open (heartbeat every 30s)
-- Events have correct format
-
----
-
-### Test 7.8: POST /api/admin/login - Rate Limit
+### Test 7.7: POST /api/admin/login - Rate Limit
 **Purpose:** Verify rate limiting at API level.
 
 **Steps:**
@@ -932,7 +913,7 @@ npm run dev
 
 ---
 
-### Test 7.9: GET /api/admin/audit - Filtering
+### Test 7.8: GET /api/admin/audit - Filtering
 **Purpose:** Verify audit API query parameters.
 
 **Steps:**
@@ -950,7 +931,7 @@ npm run dev
 
 ---
 
-### Test 7.10: GET /api/mux/assets
+### Test 7.9: GET /api/mux/assets
 **Purpose:** Verify Mux asset listing.
 
 **Steps:**

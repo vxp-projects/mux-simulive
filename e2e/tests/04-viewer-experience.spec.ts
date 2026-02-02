@@ -276,9 +276,9 @@ test.describe('Suite 4: Viewer Experience', () => {
     console.log(`Player elements found: ${playerCount}`);
   });
 
-  test('4.7: Real-Time Stop Notification (SSE)', async ({ page, context }) => {
+  test('4.7: Stop Notification via Time Polling', async ({ page }) => {
     if (!liveStream) {
-      test.skip(true, 'No live stream for SSE test');
+      test.skip(true, 'No live stream for stop notification test');
       return;
     }
 
@@ -293,8 +293,11 @@ test.describe('Suite 4: Viewer Experience', () => {
     const stopTime = new Date().toISOString();
     await api.updateStream(liveStream.id, { endedAt: stopTime });
 
-    // Step 3: Wait for SSE update (or poll fallback)
-    await page.waitForTimeout(3000); // Allow time for SSE or polling
+    // Step 3: Trigger a time recalibration so status updates
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(1000);
 
     // Optionally trigger a check by clicking or scrolling
     await page.mouse.move(100, 100);
@@ -314,7 +317,7 @@ test.describe('Suite 4: Viewer Experience', () => {
     // Resume the stream for other tests
     await api.updateStream(liveStream.id, { endedAt: null });
 
-    // Verification is soft - SSE may not be immediately visible in UI
+    // Verification is soft - UI may take a moment to reflect status updates
     expect(textChanged || showsStopped).toBe(true);
   });
 

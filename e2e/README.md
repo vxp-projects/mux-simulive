@@ -45,10 +45,10 @@ npm run test:e2e:debug
 | 1. Health Check | `01-health-check.spec.ts` | 1 | Verifies all backend services |
 | 2. Authentication | `02-authentication.spec.ts` | 6 | Login, logout, sessions, rate limiting |
 | 3. Stream Management | `03-stream-management.spec.ts` | 12 | CRUD, status changes, embed codes |
-| 4. Viewer Experience | `04-viewer-experience.spec.ts` | 8 | Watch pages, sync, real-time updates |
+| 4. Viewer Experience | `04-viewer-experience.spec.ts` | 8 | Watch pages, sync, stop detection |
 | 5. Embed Functionality | `05-embed-functionality.spec.ts` | 4 | Responsive/fixed embeds |
 | 6. Audit Logs | `06-audit-logs.spec.ts` | 5 | Logging, filtering, pagination |
-| 7. API Validation | `07-api-validation.spec.ts` | 10 | Endpoint validation, error handling |
+| 7. API Validation | `07-api-validation.spec.ts` | 9 | Endpoint validation, error handling |
 | 8. Cache Behavior | `08-cache-behavior.spec.ts` | 4 | Cache headers, invalidation |
 
 ## Running Tests
@@ -194,10 +194,6 @@ npx playwright show-report e2e/reports/html
 ### Stream Tests Skip
 - Ensure Mux assets exist in your account
 - Assets must have "ready" status
-
-### SSE Tests Timeout
-- SSE requires stable connection
-- Check for proxy/firewall issues
 
 ## Contributing
 

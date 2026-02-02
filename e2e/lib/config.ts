@@ -24,7 +24,6 @@ export const endpoints = {
     streams: '/api/streams',
     stream: (id: string) => `/api/streams/${id}`,
     streamStatus: (id: string) => `/api/streams/${id}/status`,
-    streamEvents: (id: string) => `/api/streams/${id}/events`,
     login: '/api/admin/login',
     logout: '/api/admin/logout',
     audit: '/api/admin/audit',

@@ -288,7 +288,7 @@ export default function SimulatedLivePlayer({
     };
   }, [nextItem, tokenCache]);
 
-  // Stream status piggybacks on /api/time updates (no SSE).
+  // Stream status piggybacks on /api/time updates.
 
   const getSyncedTime = useCallback(() => {
     return Date.now() + serverTimeOffset;

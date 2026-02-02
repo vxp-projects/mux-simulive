@@ -2,9 +2,6 @@ import Redis from "ioredis";
 
 let redisClient: Redis | null = null;
 
-// Channel prefix for stream events pub/sub
-export const STREAM_EVENTS_CHANNEL = "stream:events:";
-
 function requireRedisUrl(): string {
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
@@ -185,44 +182,4 @@ export async function checkLoginRateLimit(ip: string): Promise<RateLimitResult> 
 export async function resetLoginRateLimit(ip: string): Promise<void> {
   const redis = getRedisClient();
   await redis.del(`${RATE_LIMIT_PREFIX}${ip}`);
-}
-
-// ============================================
-// Pub/Sub for Stream Events (SSE)
-// ============================================
-
-export interface StreamEvent {
-  type: "stopped" | "resumed";
-  timestamp: number;
-  data?: Record<string, unknown>;
-}
-
-/**
- * Publish a stream event to all subscribers
- */
-export async function publishStreamEvent(
-  slug: string,
-  event: StreamEvent
-): Promise<boolean> {
-  const redis = getRedisClient();
-  await redis.publish(`${STREAM_EVENTS_CHANNEL}${slug}`, JSON.stringify(event));
-  return true;
-}
-
-/**
- * Create a NEW Redis connection for subscribing
- * ioredis requires a separate connection for pub/sub mode
- */
-export function createSubscriberClient(): Redis {
-  const redisUrl = requireRedisUrl();
-  const subscriber = new Redis(redisUrl, {
-    maxRetriesPerRequest: 3,
-    lazyConnect: true,
-  });
-
-  subscriber.on("error", (err) => {
-    console.error("[Redis Subscriber] Connection error:", err.message);
-  });
-
-  return subscriber;
 }

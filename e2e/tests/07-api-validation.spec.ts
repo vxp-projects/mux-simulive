@@ -204,74 +204,7 @@ test.describe('Suite 7: API Validation', () => {
     await api.deleteStream(streamId).catch(() => {});
   });
 
-  test('7.7: GET /api/streams/[id]/events (SSE)', async ({ page }) => {
-    const assets = await api.getMuxAssets({ limit: 1 });
-    const readyAssets = assets.filter((a) => a.status === 'ready' && a.playback_ids?.length > 0);
-
-    if (readyAssets.length === 0) {
-      test.skip(true, 'No Mux assets available');
-      return;
-    }
-
-    const createResult = await api.createStream({
-      title: 'E2E API SSE Test',
-      slug: `e2e-api-sse-${Date.now()}`,
-      assetIds: [readyAssets[0].id],
-      scheduledStart: helpers.getPastDate(0.5).toISOString(),
-      loopCount: 5,
-    });
-
-    if (!createResult.stream) {
-      throw new Error(`Failed to create SSE test stream: ${createResult.error}`);
-    }
-
-    await api.updateStream(createResult.stream.id, { isActive: true });
-
-    try {
-      // Use page.evaluate to test SSE with EventSource (proper SSE client)
-      const sseUrl = `${config.baseUrl}${endpoints.api.streamEvents(createResult.stream.id)}`;
-
-      const result = await page.evaluate(async (url) => {
-        return new Promise<{ connected: boolean; contentType: string | null; firstEvent: string | null }>((resolve) => {
-          const timeout = setTimeout(() => {
-            resolve({ connected: false, contentType: null, firstEvent: null });
-          }, 5000);
-
-          const eventSource = new EventSource(url);
-
-          eventSource.onopen = () => {
-            // Connection opened successfully
-          };
-
-          eventSource.onmessage = (event) => {
-            clearTimeout(timeout);
-            eventSource.close();
-            resolve({
-              connected: true,
-              contentType: 'text/event-stream',
-              firstEvent: event.data?.substring(0, 100) || 'received',
-            });
-          };
-
-          eventSource.onerror = () => {
-            clearTimeout(timeout);
-            eventSource.close();
-            // SSE connection may error after initial connection but that's OK for this test
-            resolve({ connected: true, contentType: 'text/event-stream', firstEvent: 'error-after-connect' });
-          };
-        });
-      }, sseUrl);
-
-      console.log(`SSE connection result: connected=${result.connected}, firstEvent=${result.firstEvent}`);
-
-      // Expected Result: SSE endpoint is accessible
-      expect(result.connected).toBe(true);
-    } finally {
-      await api.deleteStream(createResult.stream.id).catch(() => {});
-    }
-  });
-
-  test('7.8: POST /api/admin/login - Rate Limit Headers @ratelimit', async () => {
+  test('7.7: POST /api/admin/login - Rate Limit Headers @ratelimit', async () => {
     // Create fresh context for rate limit test
     const apiContext = await request.newContext({ baseURL: config.baseUrl });
 
@@ -297,7 +230,7 @@ test.describe('Suite 7: API Validation', () => {
     await apiContext.dispose();
   });
 
-  test('7.9: GET /api/admin/audit - Filtering', async () => {
+  test('7.8: GET /api/admin/audit - Filtering', async () => {
     // Ensure authenticated
     await api.login(config.adminPassword);
 
@@ -323,7 +256,7 @@ test.describe('Suite 7: API Validation', () => {
     expect(filteredLogs.offset).toBeDefined();
   });
 
-  test('7.10: GET /api/mux/assets', async () => {
+  test('7.9: GET /api/mux/assets', async () => {
     // Ensure authenticated
     await api.login(config.adminPassword);
 

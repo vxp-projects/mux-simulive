@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getAssetInfo } from "@/lib/mux";
 import { isApiAuthenticated, getClientIp } from "@/lib/auth";
-import { deleteCached, publishStreamEvent, isRedisConfigured } from "@/lib/redis";
+import { deleteCached, isRedisConfigured } from "@/lib/redis";
 import { logStreamUpdated, logStreamDeleted } from "@/lib/audit";
 
 const STREAMS_CACHE_KEY = "streams:all";
@@ -222,24 +222,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Invalidate status cache if endedAt, isActive, or pollMultiplier changed
     if (updateData.endedAt !== undefined || updateData.isActive !== undefined || updateData.pollMultiplier !== undefined) {
       await invalidateStatusCache(stream.id, stream.slug);
-    }
-
-    // Publish SSE events for real-time updates to viewers
-    if (updateData.endedAt !== undefined) {
-      if (updateData.endedAt) {
-        // Stream was stopped
-        await publishStreamEvent(stream.slug, {
-          type: "stopped",
-          timestamp: Date.now(),
-          data: { endedAt: stream.endedAt },
-        });
-      } else {
-        // Stream was resumed (endedAt set to null)
-        await publishStreamEvent(stream.slug, {
-          type: "resumed",
-          timestamp: Date.now(),
-        });
-      }
     }
 
     return NextResponse.json(stream);

@@ -16,8 +16,7 @@
     "test:e2e:report": "playwright show-report e2e/reports/html",
     "test:e2e:install": "playwright install chromium",
     "perf:api": "k6 run perf/api-load.js",
-    "perf:viewer": "k6 run perf/viewer-load.js",
-    "perf:sse": "node perf/sse-load.js"
+    "perf:viewer": "k6 run perf/viewer-load.js"
   },
   "dependencies": {
     "@mux/mux-node": "^9.0.1",
